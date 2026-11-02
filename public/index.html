@@ -35,6 +35,19 @@
 
     <!-- معلومات القاعة والتحكم -->
     <div class="header-actions">
+      <!-- كبسولة الروم الصوتي السريعة -->
+      <div class="voice-header-capsule" id="voiceHeaderCapsule">
+        <button class="voice-join-btn" id="voiceJoinBtn" onclick="toggleVoiceRoom()" title="الانضمام إلى الروم الصوتي المباشر للتحدث مع الأصدقاء">
+          <span class="voice-pulse-dot" id="voicePulseDot"></span>
+          <span id="voiceJoinBtnText">🎙️ الروم الصوتي</span>
+        </button>
+        <div class="voice-active-controls hidden" id="voiceActiveControls">
+          <button class="voice-ctrl-icon-btn" id="voiceMuteBtn" onclick="toggleVoiceMute()" title="كتم / تشغيل المايك (Mute)">🎙️</button>
+          <button class="voice-ctrl-icon-btn" id="voiceDeafenBtn" onclick="toggleVoiceDeafen()" title="كتم / سماع الحضور (Deafen)">🎧</button>
+          <button class="voice-ctrl-icon-btn disconnect-btn" onclick="leaveVoiceRoom()" title="مغادرة الروم الصوتي">🔴</button>
+        </div>
+      </div>
+
       <div class="room-badge" id="roomCodeBadge" onclick="copyInviteLink()" title="انقر لنسخ رابط السهرة">
         <span>🍿</span>
         <span>قاعة: ...</span>
@@ -49,8 +62,8 @@
         ⭐ مكتبتي (<span id="favCountBadge">0</span>)
       </button>
 
-      <button class="mobile-chat-toggle" id="mobileChatToggle" onclick="toggleMobileChat()" title="فتح / إغلاق الدردشة">
-        💬 الدردشة
+      <button class="mobile-chat-toggle" id="mobileChatToggle" onclick="toggleMobileChat()" title="فتح / إغلاق القائمة الجانبية">
+        💬 المحادثة
       </button>
     </div>
   </header>
@@ -153,6 +166,10 @@
             </div>
           </div>
           <canvas id="browserCanvas" width="1920" height="1080"></canvas>
+          
+          <!-- طبقة عرض الترجمة العربية السينمائية الطافية فوق الكانفاس -->
+          <div class="cinema-subtitle-overlay" id="cinemaSubOverlay"></div>
+
           <div id="browserLoadingOverlay" class="browser-loading">
             <div class="spinner"></div>
             <span>جاري تشغيل المتصفح الافتراضي...</span>
@@ -173,6 +190,9 @@
               🔊 الصوت
             </button>
             <div class="playback-divider"></div>
+            <button class="playback-btn sub-toggle-btn" onclick="openSubtitlePanel()" title="الترجمة العربية التلقائية وتزامن التوقيت">
+              📝 الترجمة
+            </button>
             <button class="playback-btn fav-btn" onclick="addCurrentToFavorites()" title="حفظ الفيلم الحالي في مكتبتي المفضلة">
               ❤️ حفظ الفيلم
             </button>
@@ -239,13 +259,16 @@
       <div class="sync-toast" id="syncToast"></div>
     </section>
 
-    <!-- القائمة الجانبية: الدردشة والحضور -->
+    <!-- القائمة الجانبية: الدردشة، الروم الصوتي، الترجمة، الحضور -->
     <aside class="cinema-sidebar">
       <div class="sidebar-tabs">
-        <button class="tab-btn active" id="tabBtnChat" onclick="switchSidebarTab('chat')">💬 الدردشة الحية</button>
+        <button class="tab-btn active" id="tabBtnChat" onclick="switchSidebarTab('chat')">💬 الدردشة</button>
+        <button class="tab-btn" id="tabBtnVoice" onclick="switchSidebarTab('voice')">🎙️ الروم (<span id="voiceCountBadge">0</span>)</button>
+        <button class="tab-btn" id="tabBtnSubtitles" onclick="switchSidebarTab('subtitles')">📝 الترجمة</button>
         <button class="tab-btn" id="tabBtnUsers" onclick="switchSidebarTab('users')">👥 الحضور (<span id="usersCountBadge">1</span>)</button>
       </div>
 
+      <!-- 1. تبويب الدردشة الحية -->
       <div class="tab-content active" id="tabContentChat">
         <div class="chat-messages" id="chatMessages"></div>
 
@@ -264,6 +287,112 @@
         </div>
       </div>
 
+      <!-- 2. تبويب الروم الصوتي المباشر (WebRTC Live Voice) -->
+      <div class="tab-content" id="tabContentVoice">
+        <div class="voice-tab-panel">
+          <div class="voice-status-card" id="voiceStatusCard">
+            <div class="voice-status-info">
+              <span class="voice-indicator-dot" id="voiceIndicatorDot"></span>
+              <div>
+                <div class="voice-status-title" id="voiceStatusTitle">الروم الصوتي غير متصل</div>
+                <div class="voice-status-sub" id="voiceStatusSub">اضغط انضمام للتحدث بصوتك مباشرة مع الأصدقاء</div>
+              </div>
+            </div>
+            <button class="btn-primary voice-main-action-btn" id="voiceMainActionBtn" onclick="toggleVoiceRoom()">
+              🎙️ انضمام للروم الصوتي
+            </button>
+          </div>
+
+          <!-- قائمة الأعضاء في الروم الصوتي مع مؤشرات التحدث الحية -->
+          <div class="voice-section-title">المتصلون بالصوت (<span id="voiceConnectedCount">0</span>):</div>
+          <div class="voice-members-list" id="voiceMembersList">
+            <div class="voice-empty-state" id="voiceEmptyState">
+              <span class="empty-icon">🎙️</span>
+              <p>لا يوجد أحد في الروم الصوتي حالياً.<br>انقر على انضمام لتكون أول المتحدثين!</p>
+            </div>
+          </div>
+
+          <!-- عناصر التحكم بالمايك والسماعة -->
+          <div class="voice-controls-dock" id="voiceControlsDock">
+            <button class="voice-dock-btn" id="dockMuteBtn" onclick="toggleVoiceMute()" title="كتم / تشغيل المايك">
+              <span class="dock-icon">🎙️</span>
+              <span id="dockMuteLabel">المايك يعمل</span>
+            </button>
+            <button class="voice-dock-btn" id="dockDeafenBtn" onclick="toggleVoiceDeafen()" title="كتم صوت الحضور">
+              <span class="dock-icon">🎧</span>
+              <span id="dockDeafenLabel">السماعة تعمل</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. تبويب الترجمة التلقائية الذكية (Auto Subtitles & Sync) -->
+      <div class="tab-content" id="tabContentSubtitles">
+        <div class="subtitles-tab-panel">
+          <div class="sub-search-box">
+            <div class="sub-search-input-group">
+              <input type="text" id="subSearchInput" placeholder="اكتب اسم الفيلم للبحث عن ترجمته العربية..." onkeypress="if(event.key==='Enter') searchArabicSubtitles()">
+              <button class="btn-primary" onclick="searchArabicSubtitles()">بحث 🔍</button>
+            </div>
+            <button class="sub-auto-detect-btn" onclick="autoDetectMovieSubtitle()" title="استخراج اسم الفيلم تلقائياً من الصفحة الحالية">
+              ⚡ كشف الفيلم الحالي والترجمة تلقائياً
+            </button>
+          </div>
+
+          <!-- الترجمة المفعلة حالياً -->
+          <div class="active-sub-card hidden" id="activeSubCard">
+            <div class="active-sub-header">
+              <span class="active-sub-badge">🟢 مفعّلة حالياً</span>
+              <button class="active-sub-remove-btn" onclick="removeActiveSubtitle()" title="إلغاء الترجمة">✕</button>
+            </div>
+            <h4 class="active-sub-title" id="activeSubTitle">...</h4>
+
+            <!-- أزرار ضبط توقيت وتزامن الترجمة -->
+            <div class="sub-sync-controls">
+              <span class="sync-label">مزامنة التوقيت:</span>
+              <div class="sync-btn-group">
+                <button class="sync-btn" onclick="adjustSubtitleOffset(-0.5)" title="تأخير نصف ثانية">⏪ -0.5ث</button>
+                <span class="sync-offset-val" id="subOffsetVal">0.0ث</span>
+                <button class="sync-btn" onclick="adjustSubtitleOffset(0.5)" title="تقديم نصف ثانية">+0.5ث ⏩</button>
+                <button class="sync-btn reset-btn" onclick="resetSubtitleOffset()" title="إعادة ضبط التوقيت">🔄 0ث</button>
+              </div>
+            </div>
+
+            <!-- تخصيص مظهر الترجمة -->
+            <div class="sub-appearance-row">
+              <div class="sub-pref-group">
+                <label>الحجم:</label>
+                <select id="subFontSizeSelect" onchange="changeSubFontSize(this.value)">
+                  <option value="18px">صغير (18px)</option>
+                  <option value="22px" selected>متوسط (22px)</option>
+                  <option value="28px">كبير سينمائي (28px)</option>
+                </select>
+              </div>
+              <div class="sub-pref-group">
+                <label>اللون:</label>
+                <select id="subColorSelect" onchange="changeSubColor(this.value)">
+                  <option value="#ffeb3b" selected>أصفر سينمائي 🎬</option>
+                  <option value="#ffffff">أبيض كريستال 💎</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- نتائج البحث عن الترجمات -->
+          <div class="sub-results-header">
+            <span>ملفات الترجمة المتاحة:</span>
+            <span id="subResultsCount" style="color: var(--text-muted); font-size: 11px;"></span>
+          </div>
+          <div class="sub-results-list" id="subResultsList">
+            <div class="sub-empty-hint">
+              <span class="empty-icon">📝</span>
+              <p>اضغط على زر الكشف التلقائي أو اكتب اسم الفيلم لجلب أفضل الترجمات العربية المتزامنة فوراً.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. تبويب الحضور -->
       <div class="tab-content" id="tabContentUsers">
         <div class="users-list" id="usersList"></div>
       </div>

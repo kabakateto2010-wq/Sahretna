@@ -642,12 +642,34 @@ function createFloatingReaction(emoji) {
 function switchSidebarTab(tabName) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
   if (tabName === 'chat') {
-    document.getElementById('tabBtnChat').classList.add('active');
-    document.getElementById('tabContentChat').classList.add('active');
+    const btn = document.getElementById('tabBtnChat');
+    const content = document.getElementById('tabContentChat');
+    if (btn) btn.classList.add('active');
+    if (content) content.classList.add('active');
+  } else if (tabName === 'voice') {
+    const btn = document.getElementById('tabBtnVoice');
+    const content = document.getElementById('tabContentVoice');
+    if (btn) btn.classList.add('active');
+    if (content) content.classList.add('active');
+  } else if (tabName === 'subtitles') {
+    const btn = document.getElementById('tabBtnSubtitles');
+    const content = document.getElementById('tabContentSubtitles');
+    if (btn) btn.classList.add('active');
+    if (content) content.classList.add('active');
   } else {
-    document.getElementById('tabBtnUsers').classList.add('active');
-    document.getElementById('tabContentUsers').classList.add('active');
+    const btn = document.getElementById('tabBtnUsers');
+    const content = document.getElementById('tabContentUsers');
+    if (btn) btn.classList.add('active');
+    if (content) content.classList.add('active');
+  }
+}
+
+function openSubtitlePanel() {
+  switchSidebarTab('subtitles');
+  if (cinemaMainLayout && cinemaMainLayout.classList.contains('mobile-chat-closed')) {
+    toggleMobileChat();
   }
 }
 
@@ -1080,6 +1102,720 @@ function initCanvasVisualControls() {
     }
   } catch (e) {}
 }
+
+// ==============================================================
+// 🎙️ الغرفة الصوتية المباشرة (Live WebRTC Voice Chat Engine)
+// ==============================================================
+let localVoiceStream = null;
+let voiceAudioContext = null;
+let voiceAnalyser = null;
+let voiceVadInterval = null;
+let voicePeers = {}; // remoteSocketId -> RTCPeerConnection
+let remoteAudioStreams = {}; // remoteSocketId -> HTMLAudioElement
+let isVoiceConnected = false;
+let isVoiceMuted = false;
+let isVoiceDeafened = false;
+let isLocalSpeaking = false;
+let voiceUsersInRoom = [];
+
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' }
+  ]
+};
+
+async function toggleVoiceRoom() {
+  if (isVoiceConnected) {
+    leaveVoiceRoom();
+  } else {
+    await joinVoiceRoom();
+  }
+}
+
+async function joinVoiceRoom() {
+  if (isVoiceConnected) return;
+
+  try {
+    showToast('🎙️ جاري الوصول للمايك والاتصال بالروم الصوتي...');
+    localVoiceStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      },
+      video: false
+    });
+
+    isVoiceConnected = true;
+    isVoiceMuted = false;
+    isVoiceDeafened = false;
+
+    setupVoiceActivityDetection(localVoiceStream);
+
+    // إشعار السيرفر بالانضمام للروم الصوتي
+    socket.emit('voice-join', { roomId: currentRoomId });
+
+    updateVoiceUIState();
+    showToast('🟢 تم الاتصال بالروم الصوتي المباشر بنجاح!');
+  } catch (err) {
+    console.error('[Voice] خطأ في الوصول للمايكروفون:', err);
+    showToast('⚠️ يرجى السماح للمتصفح بالوصول للمايكروفون للانضمام للروم.');
+  }
+}
+
+function leaveVoiceRoom() {
+  if (!isVoiceConnected) return;
+
+  // إغلاق مسارات الصوت المحلية
+  if (localVoiceStream) {
+    localVoiceStream.getTracks().forEach(t => t.stop());
+    localVoiceStream = null;
+  }
+
+  // إغلاق محلل الصوت
+  if (voiceVadInterval) clearInterval(voiceVadInterval);
+  if (voiceAudioContext) {
+    try { voiceAudioContext.close(); } catch (e) {}
+    voiceAudioContext = null;
+  }
+
+  // إغلاق اتصالات الأقران
+  Object.keys(voicePeers).forEach(id => {
+    try { voicePeers[id].close(); } catch (e) {}
+    delete voicePeers[id];
+  });
+
+  // إزالة أصوات الآخرين
+  Object.keys(remoteAudioStreams).forEach(id => {
+    if (remoteAudioStreams[id]) {
+      remoteAudioStreams[id].pause();
+      remoteAudioStreams[id].remove();
+      delete remoteAudioStreams[id];
+    }
+  });
+
+  isVoiceConnected = false;
+  isVoiceMuted = false;
+  isVoiceDeafened = false;
+  isLocalSpeaking = false;
+
+  socket.emit('voice-leave', { roomId: currentRoomId });
+  updateVoiceUIState();
+  showToast('🔴 تم الخروج من الروم الصوتي');
+}
+
+function toggleVoiceMute() {
+  if (!isVoiceConnected || !localVoiceStream) {
+    showToast('⚠️ يجب الانضمام للروم الصوتي أولاً.');
+    return;
+  }
+
+  isVoiceMuted = !isVoiceMuted;
+  localVoiceStream.getAudioTracks().forEach(track => {
+    track.enabled = !isVoiceMuted;
+  });
+
+  socket.emit('voice-state', {
+    roomId: currentRoomId,
+    isMuted: isVoiceMuted,
+    isDeafened: isVoiceDeafened,
+    isSpeaking: false
+  });
+
+  updateVoiceUIState();
+  showToast(isVoiceMuted ? '🔇 تم كتم المايكروفون' : '🎙️ المايكروفون يعمل الآن');
+}
+
+function toggleVoiceDeafen() {
+  if (!isVoiceConnected) {
+    showToast('⚠️ يجب الانضمام للروم الصوتي أولاً.');
+    return;
+  }
+
+  isVoiceDeafened = !isVoiceDeafened;
+
+  // إذا تم كتم السماع، نكتم المايك أيضاً تلقائياً كمعيار احترافي
+  if (isVoiceDeafened && !isVoiceMuted) {
+    toggleVoiceMute();
+  }
+
+  // كتم كل أصوات الآخرين القادمة
+  Object.values(remoteAudioStreams).forEach(audio => {
+    audio.muted = isVoiceDeafened;
+  });
+
+  socket.emit('voice-state', {
+    roomId: currentRoomId,
+    isMuted: isVoiceMuted,
+    isDeafened: isVoiceDeafened,
+    isSpeaking: false
+  });
+
+  updateVoiceUIState();
+  showToast(isVoiceDeafened ? '🎧 تم كتم صوت الحاضرين بالكامل' : '🔊 تم إعادة تشغيل صوت الحاضرين');
+}
+
+function setupVoiceActivityDetection(stream) {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    voiceAudioContext = new AudioContext();
+    const source = voiceAudioContext.createMediaStreamSource(stream);
+    voiceAnalyser = voiceAudioContext.createAnalyser();
+    voiceAnalyser.fftSize = 512;
+    source.connect(voiceAnalyser);
+
+    const bufferLength = voiceAnalyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    voiceVadInterval = setInterval(() => {
+      if (!isVoiceConnected || isVoiceMuted) {
+        if (isLocalSpeaking) {
+          isLocalSpeaking = false;
+          broadcastSpeakingState(false);
+        }
+        return;
+      }
+
+      voiceAnalyser.getByteFrequencyData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        sum += dataArray[i];
+      }
+      const average = sum / bufferLength;
+      const speaking = average > 14; // حساسية الصوت المناسبة للكلام
+
+      if (speaking !== isLocalSpeaking) {
+        isLocalSpeaking = speaking;
+        broadcastSpeakingState(speaking);
+      }
+    }, 120);
+  } catch (e) {
+    console.warn('[VAD] AudioContext error:', e);
+  }
+}
+
+function broadcastSpeakingState(speaking) {
+  socket.emit('voice-state', {
+    roomId: currentRoomId,
+    isMuted: isVoiceMuted,
+    isDeafened: isVoiceDeafened,
+    isSpeaking: speaking
+  });
+
+  // تحديث محلي لبطاقة المستخدم الحالي
+  const myCard = document.querySelector(`.voice-member-card[data-user-id="${socket.id}"]`);
+  if (myCard) {
+    if (speaking) myCard.classList.add('speaking');
+    else myCard.classList.remove('speaking');
+  }
+}
+
+function createPeerConnection(remoteUserId, isInitiator) {
+  if (voicePeers[remoteUserId]) return voicePeers[remoteUserId];
+
+  const pc = new RTCPeerConnection(ICE_SERVERS);
+  voicePeers[remoteUserId] = pc;
+
+  // إضافة مسار الصوت المحلي للاتصال
+  if (localVoiceStream) {
+    localVoiceStream.getAudioTracks().forEach(track => {
+      pc.addTrack(track, localVoiceStream);
+    });
+  }
+
+  // تبادل مرشحي ICE
+  pc.onicecandidate = (event) => {
+    if (event.candidate) {
+      socket.emit('voice-signal', {
+        to: remoteUserId,
+        signal: { candidate: event.candidate }
+      });
+    }
+  };
+
+  // استقبال مسار الصوت للطرف الآخر وتشغيله
+  pc.ontrack = (event) => {
+    let audio = remoteAudioStreams[remoteUserId];
+    if (!audio) {
+      audio = new Audio();
+      audio.autoplay = true;
+      audio.muted = isVoiceDeafened;
+      remoteAudioStreams[remoteUserId] = audio;
+    }
+    audio.srcObject = event.streams[0];
+  };
+
+  // إذا كنا نحن المبادرين بالاتصال
+  if (isInitiator) {
+    pc.onnegotiationneeded = async () => {
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit('voice-signal', {
+          to: remoteUserId,
+          signal: { sdp: pc.localDescription }
+        });
+      } catch (err) {
+        console.error('[WebRTC] خطأ في إنشاء العرض:', err);
+      }
+    };
+  }
+
+  return pc;
+}
+
+// استقبال إشارات الـ WebRTC
+socket.on('voice-signal', async ({ from, signal }) => {
+  if (!isVoiceConnected) return;
+
+  let pc = voicePeers[from];
+  if (!pc) {
+    pc = createPeerConnection(from, false);
+  }
+
+  try {
+    if (signal.sdp) {
+      await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+      if (signal.sdp.type === 'offer') {
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('voice-signal', {
+          to: from,
+          signal: { sdp: pc.localDescription }
+        });
+      }
+    } else if (signal.candidate) {
+      await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+    }
+  } catch (err) {
+    console.error('[WebRTC] خطأ في معالجة الإشارة:', err);
+  }
+});
+
+// استقبال قائمة المتصلين بالصوت
+socket.on('voice-users-list', (users) => {
+  voiceUsersInRoom = users || [];
+  updateVoiceUsersListUI(voiceUsersInRoom);
+
+  // إذا كنا متصلين، ننشئ اتصالات أقران مع جميع المتواجدين
+  if (isVoiceConnected) {
+    voiceUsersInRoom.forEach(u => {
+      if (u.id !== socket.id) {
+        createPeerConnection(u.id, true);
+      }
+    });
+  }
+});
+
+socket.on('user-joined-voice', (user) => {
+  if (!voiceUsersInRoom.find(u => u.id === user.id)) {
+    voiceUsersInRoom.push(user);
+  }
+  updateVoiceUsersListUI(voiceUsersInRoom);
+
+  // إذا كان المستخدم الجديد غير محلي، نبدأ التفاوض معه
+  if (isVoiceConnected && user.id !== socket.id) {
+    createPeerConnection(user.id, true);
+    showToast(`🎙️ انضم ${user.name} للروم الصوتي`);
+  }
+});
+
+socket.on('user-left-voice', ({ userId, username }) => {
+  voiceUsersInRoom = voiceUsersInRoom.filter(u => u.id !== userId);
+  updateVoiceUsersListUI(voiceUsersInRoom);
+
+  if (voicePeers[userId]) {
+    try { voicePeers[userId].close(); } catch (e) {}
+    delete voicePeers[userId];
+  }
+  if (remoteAudioStreams[userId]) {
+    remoteAudioStreams[userId].pause();
+    remoteAudioStreams[userId].remove();
+    delete remoteAudioStreams[userId];
+  }
+
+  if (username) showToast(`🚪 غادر ${username} الروم الصوتي`);
+});
+
+socket.on('user-voice-state', ({ userId, isMuted, isDeafened, isSpeaking }) => {
+  const memberCard = document.querySelector(`.voice-member-card[data-user-id="${userId}"]`);
+  if (!memberCard) return;
+
+  if (isSpeaking) memberCard.classList.add('speaking');
+  else memberCard.classList.remove('speaking');
+
+  const icons = memberCard.querySelector('.voice-member-icons');
+  if (icons) {
+    icons.innerHTML = `
+      ${isMuted ? '🔇' : ''}
+      ${isDeafened ? '🎧❌' : ''}
+    `;
+  }
+});
+
+function updateVoiceUIState() {
+  const joinBtn = document.getElementById('voiceJoinBtn');
+  const joinBtnText = document.getElementById('voiceJoinBtnText');
+  const activeCtrls = document.getElementById('voiceActiveControls');
+  const statusCard = document.getElementById('voiceStatusCard');
+  const statusTitle = document.getElementById('voiceStatusTitle');
+  const statusSub = document.getElementById('voiceStatusSub');
+  const mainActionBtn = document.getElementById('voiceMainActionBtn');
+  const muteBtn = document.getElementById('voiceMuteBtn');
+  const deafenBtn = document.getElementById('voiceDeafenBtn');
+  const dockMuteBtn = document.getElementById('dockMuteBtn');
+  const dockDeafenBtn = document.getElementById('dockDeafenBtn');
+  const dockMuteLabel = document.getElementById('dockMuteLabel');
+  const dockDeafenLabel = document.getElementById('dockDeafenLabel');
+
+  if (isVoiceConnected) {
+    if (joinBtnText) joinBtnText.innerText = 'متصل بالصوت 🟢';
+    if (activeCtrls) activeCtrls.classList.remove('hidden');
+    if (statusCard) statusCard.classList.add('connected');
+    if (statusTitle) statusTitle.innerText = '🟢 متصل بالروم الصوتي المباشر';
+    if (statusSub) statusSub.innerText = 'صوتك واضح ومباشر لجميع المتواجدين في السهرة.';
+    if (mainActionBtn) {
+      mainActionBtn.innerText = '🔴 مغادرة الروم الصوتي';
+      mainActionBtn.classList.add('leave-btn');
+    }
+
+    if (muteBtn) {
+      if (isVoiceMuted) {
+        muteBtn.classList.add('muted');
+        muteBtn.innerText = '🔇';
+      } else {
+        muteBtn.classList.remove('muted');
+        muteBtn.innerText = '🎙️';
+      }
+    }
+
+    if (deafenBtn) {
+      if (isVoiceDeafened) {
+        deafenBtn.classList.add('deafened');
+        deafenBtn.innerText = '🔇';
+      } else {
+        deafenBtn.classList.remove('deafened');
+        deafenBtn.innerText = '🎧';
+      }
+    }
+
+    if (dockMuteBtn) {
+      dockMuteBtn.className = 'voice-dock-btn ' + (isVoiceMuted ? 'active-muted' : '');
+      if (dockMuteLabel) dockMuteLabel.innerText = isVoiceMuted ? 'المايك مكتوم 🔇' : 'المايك يعمل 🎙️';
+    }
+
+    if (dockDeafenBtn) {
+      dockDeafenBtn.className = 'voice-dock-btn ' + (isVoiceDeafened ? 'active-deafened' : '');
+      if (dockDeafenLabel) dockDeafenLabel.innerText = isVoiceDeafened ? 'السماعة مكتومة 🔇' : 'السماعة تعمل 🎧';
+    }
+  } else {
+    if (joinBtnText) joinBtnText.innerText = '🎙️ الروم الصوتي';
+    if (activeCtrls) activeCtrls.classList.add('hidden');
+    if (statusCard) statusCard.classList.remove('connected');
+    if (statusTitle) statusTitle.innerText = 'الروم الصوتي غير متصل';
+    if (statusSub) statusSub.innerText = 'اضغط انضمام للتحدث بصوتك مباشرة مع الأصدقاء.';
+    if (mainActionBtn) {
+      mainActionBtn.innerText = '🎙️ انضمام للروم الصوتي';
+      mainActionBtn.classList.remove('leave-btn');
+    }
+  }
+}
+
+function updateVoiceUsersListUI(users) {
+  const container = document.getElementById('voiceMembersList');
+  const countBadge = document.getElementById('voiceCountBadge');
+  const connectedCount = document.getElementById('voiceConnectedCount');
+
+  const list = users || [];
+  if (countBadge) countBadge.innerText = list.length;
+  if (connectedCount) connectedCount.innerText = list.length;
+
+  if (!container) return;
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="voice-empty-state">
+        <span class="empty-icon">🎙️</span>
+        <p>لا يوجد أحد في الروم الصوتي حالياً.<br>انقر على انضمام لتكون أول المتحدثين!</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = list.map(u => `
+    <div class="voice-member-card ${u.isSpeaking ? 'speaking' : ''}" data-user-id="${u.id}">
+      <div class="voice-member-info">
+        <span class="voice-avatar-badge">${u.avatar || '🍿'}</span>
+        <span class="voice-member-name">${escapeHtml(u.name)} ${u.id === socket.id ? '(أنت)' : ''}</span>
+      </div>
+      <div class="voice-member-icons">
+        ${u.isMuted ? '🔇' : ''}
+        ${u.isDeafened ? '🎧❌' : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+
+// ==============================================================
+// 📝 محرك الترجمة التلقائية الذكية ومزامنة التوقيت (Subtitles Engine)
+// ==============================================================
+let activeSubtitle = {
+  title: '',
+  cues: [],
+  offset: 0
+};
+let subTickInterval = null;
+let currentEstimatedMediaTime = 0;
+
+// البحث عن الترجمات العربية عبر الـ API
+async function searchArabicSubtitles(customQuery) {
+  const input = document.getElementById('subSearchInput');
+  const query = customQuery || (input ? input.value : '').trim();
+
+  if (!query) {
+    showToast('⚠️ يرجى كتابة اسم الفيلم للبحث عن ترجمته.');
+    return;
+  }
+
+  const resultsList = document.getElementById('subResultsList');
+  const resultsCount = document.getElementById('subResultsCount');
+  if (resultsList) {
+    resultsList.innerHTML = '<div class="sub-empty-hint">⏳ جاري البحث عن أفضل الترجمات العربية المتطابقة...</div>';
+  }
+
+  try {
+    const res = await fetch(`/api/subtitles/search?query=${encodeURIComponent(query)}`);
+    const data = await res.json();
+
+    if (data.success && data.results && data.results.length > 0) {
+      renderSubtitlesResults(data.results);
+      if (resultsCount) resultsCount.innerText = `(${data.results.length} ترجمة)`;
+    } else {
+      if (resultsList) {
+        resultsList.innerHTML = `
+          <div class="sub-empty-hint">
+            <span>🔍</span>
+            <p>لم نجد ترجمات دقيقة لهذا الاسم، جرب كتابة اسم الفيلم بالإنجليزية (مثل: Inception).</p>
+          </div>
+        `;
+      }
+    }
+  } catch (err) {
+    console.error('Subtitle search error:', err);
+    if (resultsList) {
+      resultsList.innerHTML = '<div class="sub-empty-hint">⚠️ تعذر البحث، يرجى المحاولة مرة أخرى.</div>';
+    }
+  }
+}
+
+// الكشف التلقائي عن اسم الفيلم من صفحة المتصفح الحالية
+function autoDetectMovieSubtitle() {
+  showToast('🔍 جاري استخراج اسم الفيلم من الصفحة الحالية...');
+
+  if (currentActiveMode === 'browser') {
+    socket.emit('get-movie-meta', { roomId: currentRoomId }, (meta) => {
+      let movieTitle = '';
+      if (meta && meta.title) {
+        // تنظيف العنوان من الكلمات الزائدة
+        movieTitle = meta.title.replace(/مشاهدة|فيلم|مترجم|اون لاين|كامل|ايجي ديد|egydead|akwam|كاملة|hd|1080p/gi, '').trim();
+      }
+      if (!movieTitle) {
+        const url = browserUrlInput.value || '';
+        try {
+          const u = new URL(url);
+          movieTitle = u.pathname.split('/').filter(Boolean).pop() || '';
+          movieTitle = movieTitle.replace(/[-_]/g, ' ');
+        } catch (e) {}
+      }
+
+      const finalQuery = movieTitle || 'Inception';
+      const input = document.getElementById('subSearchInput');
+      if (input) input.value = finalQuery;
+      showToast(`🎬 تم استخراج: "${finalQuery}" - جاري جلب الترجمة...`);
+      searchArabicSubtitles(finalQuery);
+    });
+  } else {
+    // في مشغل الفيديو المباشر
+    const url = videoUrlInput.value || '';
+    let fileName = url.split('/').pop().split('?')[0].replace(/\.(mp4|webm|mkv|m3u8)$/i, '').replace(/[-_]/g, ' ');
+    const finalQuery = fileName || 'Big Buck Bunny';
+    const input = document.getElementById('subSearchInput');
+    if (input) input.value = finalQuery;
+    showToast(`🎬 تم استخراج: "${finalQuery}" - جاري جلب الترجمة...`);
+    searchArabicSubtitles(finalQuery);
+  }
+}
+
+function renderSubtitlesResults(list) {
+  const container = document.getElementById('subResultsList');
+  if (!container) return;
+
+  container.innerHTML = list.map(item => `
+    <div class="sub-result-card" onclick="loadAndApplySubtitle('${escapeHtml(item.id)}', '${escapeHtml(item.title)}')">
+      <div class="sub-result-title">🎬 ${escapeHtml(item.title)}</div>
+      <div class="sub-result-meta">
+        <span class="sub-result-lang">${escapeHtml(item.lang)}</span>
+        <span>🏷️ ${escapeHtml(item.release)}</span>
+        <span>${escapeHtml(item.rating || '⭐⭐⭐⭐⭐')}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadAndApplySubtitle(subId, title) {
+  showToast('⏳ جاري تحميل وتزامن ملف الترجمة...');
+
+  try {
+    const res = await fetch(`/api/subtitles/cues?id=${encodeURIComponent(subId)}&title=${encodeURIComponent(title)}`);
+    const data = await res.json();
+
+    if (data.success && data.cues) {
+      activeSubtitle = {
+        title: title,
+        cues: data.cues,
+        offset: 0
+      };
+
+      // مزامنة الترجمة مع باقي أعضاء القاعة
+      socket.emit('sync-subtitle-track', {
+        roomId: currentRoomId,
+        title: title,
+        cues: data.cues,
+        offset: 0
+      });
+
+      updateActiveSubtitleUI();
+      startSubtitleEngine();
+      showToast(`✨ تم تفعيل الترجمة العربية: "${title}"`);
+    }
+  } catch (err) {
+    console.error('Subtitle load error:', err);
+    showToast('⚠️ تعذر تحميل الترجمة المختارة.');
+  }
+}
+
+socket.on('subtitle-track-synced', ({ title, cues, offset, by }) => {
+  activeSubtitle = { title, cues, offset: offset || 0 };
+  updateActiveSubtitleUI();
+  startSubtitleEngine();
+  if (by) showToast(`📝 قام ${by} بتفعيل ترجمة: "${title}"`);
+});
+
+function updateActiveSubtitleUI() {
+  const card = document.getElementById('activeSubCard');
+  const titleEl = document.getElementById('activeSubTitle');
+  const offsetVal = document.getElementById('subOffsetVal');
+
+  if (activeSubtitle && activeSubtitle.cues && activeSubtitle.cues.length > 0) {
+    if (card) card.classList.remove('hidden');
+    if (titleEl) titleEl.innerText = activeSubtitle.title || 'ترجمة عربية متزامنة';
+    if (offsetVal) offsetVal.innerText = `${activeSubtitle.offset >= 0 ? '+' : ''}${activeSubtitle.offset.toFixed(1)}ث`;
+  } else {
+    if (card) card.classList.add('hidden');
+  }
+}
+
+function adjustSubtitleOffset(delta) {
+  if (!activeSubtitle || !activeSubtitle.cues) return;
+  activeSubtitle.offset = Math.round((activeSubtitle.offset + delta) * 10) / 10;
+  updateActiveSubtitleUI();
+
+  socket.emit('sync-subtitle-track', {
+    roomId: currentRoomId,
+    title: activeSubtitle.title,
+    cues: activeSubtitle.cues,
+    offset: activeSubtitle.offset
+  });
+
+  showToast(`⏱️ تم ضبط توقيت الترجمة: ${activeSubtitle.offset >= 0 ? '+' : ''}${activeSubtitle.offset}s`);
+}
+
+function resetSubtitleOffset() {
+  if (!activeSubtitle || !activeSubtitle.cues) return;
+  activeSubtitle.offset = 0;
+  updateActiveSubtitleUI();
+
+  socket.emit('sync-subtitle-track', {
+    roomId: currentRoomId,
+    title: activeSubtitle.title,
+    cues: activeSubtitle.cues,
+    offset: 0
+  });
+
+  showToast('🔄 تم إعادة ضبط توقيت الترجمة إلى 0.0s');
+}
+
+function removeActiveSubtitle() {
+  activeSubtitle = { title: '', cues: [], offset: 0 };
+  updateActiveSubtitleUI();
+  const overlay = document.getElementById('cinemaSubOverlay');
+  if (overlay) overlay.innerHTML = '';
+
+  socket.emit('sync-subtitle-track', {
+    roomId: currentRoomId,
+    title: '',
+    cues: [],
+    offset: 0
+  });
+
+  showToast('✕ تم إلغاء تفعيل الترجمة');
+}
+
+function changeSubFontSize(size) {
+  document.documentElement.style.setProperty('--sub-font-size', size);
+}
+
+function changeSubColor(color) {
+  document.documentElement.style.setProperty('--sub-color', color);
+}
+
+// محرك عرض نصوص الترجمة على الكانفاس المتزامن
+function startSubtitleEngine() {
+  if (subTickInterval) clearInterval(subTickInterval);
+
+  subTickInterval = setInterval(() => {
+    if (!activeSubtitle || !activeSubtitle.cues || activeSubtitle.cues.length === 0) return;
+
+    let timeSec = 0;
+    if (currentActiveMode === 'player') {
+      timeSec = cinemaPlayer ? cinemaPlayer.currentTime : 0;
+    } else {
+      // في المتصفح الافتراضي، نعتمد على التوقيت التقديري المستمر
+      currentEstimatedMediaTime += 0.2;
+      timeSec = currentEstimatedMediaTime;
+    }
+
+    renderActiveCueAtTime(timeSec);
+  }, 200);
+}
+
+function renderActiveCueAtTime(timeSec) {
+  const overlay = document.getElementById('cinemaSubOverlay');
+  if (!overlay) return;
+
+  if (!activeSubtitle || !activeSubtitle.cues || activeSubtitle.cues.length === 0) {
+    overlay.innerHTML = '';
+    return;
+  }
+
+  const adjustedTime = timeSec + (activeSubtitle.offset || 0);
+  const cue = activeSubtitle.cues.find(c => adjustedTime >= c.start && adjustedTime <= c.end);
+
+  if (cue) {
+    overlay.innerHTML = `<span class="cinema-sub-box">${escapeHtml(cue.text).replace(/\n/g, '<br>')}</span>`;
+  } else {
+    overlay.innerHTML = '';
+  }
+}
+
+// إعادة مزامنة توقيت وسائط المتصفح الافتراضي عند طلب تقديم أو تأخير
+socket.on('browser-media-synced', ({ action, value }) => {
+  if (action === 'seek-forward') currentEstimatedMediaTime += (value || 10);
+  if (action === 'seek-backward') currentEstimatedMediaTime = Math.max(0, currentEstimatedMediaTime - (value || 10));
+});
 
 // تحديث العداد وشريط الوصول السريع وإضاءة السينما وعناصر التحكم البصري فور تحميل الصفحة
 updateFavoritesBadge();

@@ -4,10 +4,35 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 const virtualBrowser = require('./virtualBrowser');
+const subtitleService = require('./subtitleService');
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// 📝 API للبحث التلقائي عن الترجمات العربية للأفلام
+app.get('/api/subtitles/search', async (req, res) => {
+  try {
+    const query = req.query.query || '';
+    const results = await subtitleService.searchSubtitles(query);
+    res.json({ success: true, results });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message, results: [] });
+  }
+});
+
+// 📝 API لجلب نصوص وتوقيتات الترجمة (Cues)
+app.get('/api/subtitles/cues', async (req, res) => {
+  try {
+    const subId = req.query.id || '';
+    const title = req.query.title || '';
+    const cues = await subtitleService.getSubtitleCues(subId, title);
+    res.json({ success: true, cues });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message, cues: [] });
+  }
+});
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -38,6 +63,7 @@ io.on('connection', (socket) => {
     socket.join(cleanRoomId);
     socket.roomId = cleanRoomId;
     socket.username = cleanName;
+    socket.avatar = userAvatar;
 
     if (!rooms[cleanRoomId]) {
       rooms[cleanRoomId] = {
@@ -56,12 +82,15 @@ io.on('connection', (socket) => {
           playbackRate: 1,
           lastUpdated: Date.now()
         },
+        voiceUsers: {},
+        activeSubtitle: null,
         users: [],
         chatHistory: []
       };
     }
 
     const room = rooms[cleanRoomId];
+    if (!room.voiceUsers) room.voiceUsers = {};
     const isHost = room.hostId === socket.id || room.users.length === 0;
     if (isHost) room.hostId = socket.id;
 
@@ -86,6 +115,8 @@ io.on('connection', (socket) => {
         ...room.videoState,
         currentTime: getEstimatedCurrentTime(room.videoState)
       },
+      voiceUsers: Object.values(room.voiceUsers),
+      activeSubtitle: room.activeSubtitle,
       users: room.users,
       chatHistory: room.chatHistory.slice(-50)
     };
@@ -289,13 +320,104 @@ io.on('connection', (socket) => {
     });
   });
 
-  // 8. مغادرة المستخدم
+  // 8. الغرفة الصوتية المباشرة (Live WebRTC Voice Chat)
+  socket.on('voice-join', ({ roomId }) => {
+    const targetRoomId = roomId || socket.roomId;
+    const room = rooms[targetRoomId];
+    if (!room) return;
+    if (!room.voiceUsers) room.voiceUsers = {};
+
+    const voiceUser = {
+      id: socket.id,
+      name: socket.username || 'صديق السينما',
+      avatar: socket.avatar || '🍿',
+      isMuted: false,
+      isDeafened: false,
+      isSpeaking: false
+    };
+
+    room.voiceUsers[socket.id] = voiceUser;
+
+    // إرسال قائمة المتصلين بالصوت حالياً للمنضم الجديد
+    socket.emit('voice-users-list', Object.values(room.voiceUsers));
+
+    // إشعار بقية المتصلين في القاعة بانضمام عضو جديد للروم الصوتي
+    socket.to(targetRoomId).emit('user-joined-voice', voiceUser);
+
+    const voiceMsg = {
+      id: 'sys_' + Date.now(),
+      system: true,
+      text: `🎙️ انضم ${voiceUser.name} إلى الروم الصوتي.`,
+      time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+    };
+    room.chatHistory.push(voiceMsg);
+    io.to(targetRoomId).emit('new-message', voiceMsg);
+  });
+
+  socket.on('voice-leave', ({ roomId }) => {
+    const targetRoomId = roomId || socket.roomId;
+    const room = rooms[targetRoomId];
+    if (!room || !room.voiceUsers) return;
+
+    if (room.voiceUsers[socket.id]) {
+      delete room.voiceUsers[socket.id];
+      io.to(targetRoomId).emit('user-left-voice', { userId: socket.id, username: socket.username });
+    }
+  });
+
+  // ترحيل إشارات WebRTC (Offer, Answer, ICE Candidates) مباشرة للطرف الآخر
+  socket.on('voice-signal', ({ to, signal }) => {
+    io.to(to).emit('voice-signal', {
+      from: socket.id,
+      signal: signal
+    });
+  });
+
+  // مزامنة حالة المايك والتحدث الحي (Speaking / Mute / Deafen)
+  socket.on('voice-state', ({ roomId, isMuted, isDeafened, isSpeaking }) => {
+    const targetRoomId = roomId || socket.roomId;
+    const room = rooms[targetRoomId];
+    if (room && room.voiceUsers && room.voiceUsers[socket.id]) {
+      if (isMuted !== undefined) room.voiceUsers[socket.id].isMuted = isMuted;
+      if (isDeafened !== undefined) room.voiceUsers[socket.id].isDeafened = isDeafened;
+      if (isSpeaking !== undefined) room.voiceUsers[socket.id].isSpeaking = isSpeaking;
+
+      socket.to(targetRoomId).emit('user-voice-state', {
+        userId: socket.id,
+        isMuted,
+        isDeafened,
+        isSpeaking
+      });
+    }
+  });
+
+  // 9. مزامنة الترجمة المختارة بين جميع الحضور (Synced Subtitles)
+  socket.on('sync-subtitle-track', ({ roomId, title, cues, offset }) => {
+    const room = rooms[roomId];
+    if (room) {
+      room.activeSubtitle = { title, cues, offset: offset || 0 };
+      socket.to(roomId).emit('subtitle-track-synced', {
+        title,
+        cues,
+        offset: offset || 0,
+        by: socket.username
+      });
+    }
+  });
+
+  // 10. مغادرة المستخدم
   socket.on('disconnect', async () => {
     const { roomId } = socket;
     if (!roomId || !rooms[roomId]) return;
 
     const room = rooms[roomId];
     room.users = room.users.filter(u => u.id !== socket.id);
+
+    // تنظيف المستخدم من الروم الصوتي إذا كان متصلاً
+    if (room.voiceUsers && room.voiceUsers[socket.id]) {
+      delete room.voiceUsers[socket.id];
+      io.to(roomId).emit('user-left-voice', { userId: socket.id, username: socket.username });
+    }
 
     if (room.hostId === socket.id && room.users.length > 0) {
       room.hostId = room.users[0].id;
