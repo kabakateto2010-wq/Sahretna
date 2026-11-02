@@ -400,6 +400,63 @@ async function controlMedia(roomId, action, value = 10) {
   } catch (e) {}
 }
 
+// استخراج معلومات وبوستر الفيلم الحالي لحفظه في المفضلة
+async function getPageMeta(roomId) {
+  const session = roomBrowsers[roomId];
+  if (!session || !session.page) return null;
+
+  try {
+    const meta = await session.page.evaluate(() => {
+      let title = document.title || '';
+
+      // إذا كان العنوان لا يزال فارغاً أو عاماً، نبحث عن وسم h1 أو عنوان المقال
+      if (!title || title.includes('بدون عنوان') || title === 'Google' || title.length < 3) {
+        const h1 = document.querySelector('h1, .entry-title, .movie-title, .title, [class*="title"]');
+        if (h1 && h1.innerText && h1.innerText.trim().length > 2) {
+          title = h1.innerText.trim();
+        }
+      }
+
+      title = title.replace(/مشاهدة\s+/gi, '')
+                   .replace(/مترجم/gi, '')
+                   .replace(/\|\s*ايجي ديد.*/gi, '')
+                   .replace(/\|\s*اكوام.*/gi, '')
+                   .replace(/\|\s*ماي سيما.*/gi, '')
+                   .replace(/- YouTube$/gi, '')
+                   .trim();
+
+      let poster = null;
+      const ogImg = document.querySelector('meta[property="og:image"], meta[name="og:image"]');
+      if (ogImg && ogImg.content) {
+        poster = ogImg.content;
+      }
+
+      if (!poster) {
+        const p = document.querySelector('.poster img, .cover img, .movie-poster img, img[src*="poster"], img[src*="thumb"], img[src*="uploads"]');
+        if (p && p.src) poster = p.src;
+      }
+
+      if (!poster) {
+        const bigImgs = Array.from(document.querySelectorAll('img')).filter(i => (i.naturalWidth || i.width) >= 100 && (i.naturalHeight || i.height) >= 100);
+        if (bigImgs.length) poster = bigImgs[0].src;
+      }
+
+      return {
+        title: title || 'فيلم سينمائي',
+        poster: poster || null,
+        url: window.location.href
+      };
+    });
+    return meta;
+  } catch (err) {
+    return {
+      title: 'فيلم سينمائي',
+      poster: null,
+      url: session.lastUrl || ''
+    };
+  }
+}
+
 async function closeBrowser(roomId) {
   const session = roomBrowsers[roomId];
   if (session) {
@@ -422,5 +479,6 @@ module.exports = {
   dispatchMouse,
   dispatchKey,
   controlMedia,
+  getPageMeta,
   closeBrowser
 };

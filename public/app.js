@@ -622,3 +622,179 @@ function switchSidebarTab(tabName) {
 function escapeHtml(str) {
   return (str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
 }
+
+// ==============================================================
+// مكتبة الأفلام المفضلة (Watchlist & Favorites Library)
+// ==============================================================
+const FAV_STORAGE_KEY = 'sahra_cinema_favorites';
+const favCountBadge = document.getElementById('favCountBadge');
+const favoritesModal = document.getElementById('favoritesModal');
+const favModalCounter = document.getElementById('favModalCounter');
+const favLibraryContent = document.getElementById('favLibraryContent');
+const favSearchInput = document.getElementById('favSearchInput');
+
+function getFavorites() {
+  try {
+    const raw = localStorage.getItem(FAV_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveFavorites(list) {
+  try {
+    localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(list));
+    updateFavoritesBadge();
+  } catch (e) {}
+}
+
+function updateFavoritesBadge() {
+  const list = getFavorites();
+  if (favCountBadge) favCountBadge.innerText = list.length;
+  if (favModalCounter) favModalCounter.innerText = `${list.length} فيلم`;
+}
+
+// إضافة الفيلم الحالي للمفضلة
+function addCurrentToFavorites() {
+  const currentUrl = currentActiveMode === 'browser' ? (browserUrlInput.value || '').trim() : (videoUrlInput.value || '').trim();
+  if (!currentUrl || currentUrl === 'https://www.google.com') {
+    showToast('⚠️ يرجى فتح صفحة الفيلم أولاً لحفظه في المفضلة.');
+    return;
+  }
+
+  showToast('⏳ جاري جلب معلومات وبوستر الفيلم...');
+
+  if (currentActiveMode === 'browser') {
+    socket.emit('get-movie-meta', { roomId: currentRoomId }, (meta) => {
+      saveMovieToStorage(meta || { url: currentUrl, title: 'فيلم سينمائي', poster: null });
+    });
+  } else {
+    saveMovieToStorage({
+      url: currentUrl,
+      title: 'فيديو مباشر: ' + (currentUrl.split('/').pop().substring(0, 30) || 'فيلم'),
+      poster: null
+    });
+  }
+}
+
+function saveMovieToStorage(movie) {
+  const list = getFavorites();
+  const cleanUrl = (movie.url || '').trim();
+
+  // فحص إذا كان الفيلم مضافاً مسبقاً
+  const exists = list.some(item => item.url === cleanUrl);
+  if (exists) {
+    showToast('⭐ هذا الفيلم محفوظ بالفعل في مكتبتك المفضلة!');
+    return;
+  }
+
+  const movieItem = {
+    id: 'fav_' + Date.now(),
+    title: (movie.title || 'فيلم سينمائي').trim(),
+    poster: movie.poster || null,
+    url: cleanUrl,
+    addedAt: new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' })
+  };
+
+  list.unshift(movieItem);
+  saveFavorites(list);
+  showToast(`❤️ تمت إضافة "${movieItem.title}" إلى مكتبتك المفضلة! 🍿`);
+  renderFavoritesModal();
+}
+
+function toggleFavoritesModal() {
+  if (!favoritesModal) return;
+  const isHidden = favoritesModal.style.display === 'none';
+  if (isHidden) {
+    renderFavoritesModal();
+    favoritesModal.style.display = 'flex';
+    if (favSearchInput) favSearchInput.value = '';
+  } else {
+    favoritesModal.style.display = 'none';
+  }
+}
+
+function filterFavorites(query) {
+  renderFavoritesModal(query.trim().toLowerCase());
+}
+
+function renderFavoritesModal(query = '') {
+  if (!favLibraryContent) return;
+  let list = getFavorites();
+
+  if (query) {
+    list = list.filter(item => item.title.toLowerCase().includes(query) || item.url.toLowerCase().includes(query));
+  }
+
+  updateFavoritesBadge();
+
+  if (list.length === 0) {
+    if (query) {
+      favLibraryContent.innerHTML = `
+        <div class="library-empty">
+          <div class="empty-icon">🔍</div>
+          <h3>لا توجد نتائج مطابقة لـ "${escapeHtml(query)}"</h3>
+          <p>جرّب البحث باسم آخر.</p>
+        </div>
+      `;
+    } else {
+      favLibraryContent.innerHTML = `
+        <div class="library-empty">
+          <div class="empty-icon">🍿</div>
+          <h3>مكتبتك المفضلة فارغة حالياً!</h3>
+          <p>عندما تشاهد أو تتصفح أي فيلم في السهرة، اضغط على زر <strong>"❤️ حفظ الفيلم"</strong> ليتم حفظه ببوستره هنا دائماً وتستطيع الرجوع إليه ومشاهدته بنقرة واحدة.</p>
+        </div>
+      `;
+    }
+    return;
+  }
+
+  favLibraryContent.innerHTML = `
+    <div class="fav-grid">
+      ${list.map(item => `
+        <div class="fav-card">
+          <div class="fav-card-poster">
+            ${item.poster ? `
+              <img src="${escapeHtml(item.poster)}" alt="${escapeHtml(item.title)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'poster-fallback\\'>🎬</div>';">
+            ` : `
+              <div class="poster-fallback">🎬</div>
+            `}
+            <div class="fav-card-overlay">
+              <button class="fav-play-btn" onclick="playFavoriteMovie('${escapeHtml(item.url)}')">
+                ▶️ تشغيل الآن
+              </button>
+            </div>
+          </div>
+          <div class="fav-card-info">
+            <h4 class="fav-card-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</h4>
+            <div class="fav-card-meta">
+              <span class="fav-date">📅 ${escapeHtml(item.addedAt)}</span>
+              <button class="fav-delete-btn" onclick="removeFavoriteMovie('${item.id}')" title="حذف من المفضلة">🗑️</button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function playFavoriteMovie(url) {
+  if (!url) return;
+  toggleFavoritesModal();
+  switchMainMode('browser');
+  browserNavigateTo(url);
+  showToast('🎬 جاري تشغيل الفيلم من مكتبتك المفضلة...');
+}
+
+function removeFavoriteMovie(id) {
+  let list = getFavorites();
+  const removed = list.find(i => i.id === id);
+  list = list.filter(item => item.id !== id);
+  saveFavorites(list);
+  renderFavoritesModal(favSearchInput ? favSearchInput.value : '');
+  showToast(`🗑️ تم حذف "${removed ? removed.title : 'الفيلم'}" من المفضلة`);
+}
+
+// تحديث العداد فور تحميل الصفحة
+updateFavoritesBadge();

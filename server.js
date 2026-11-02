@@ -178,6 +178,18 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('browser-media-synced', { action, value, by: socket.username });
   });
 
+  // طلب معلومات الفيلم الحالية لحفظه في المفضلة
+  socket.on('get-movie-meta', async ({ roomId }, callback) => {
+    try {
+      const meta = await virtualBrowser.getPageMeta(roomId);
+      if (typeof callback === 'function') {
+        callback(meta || { url: '', title: 'فيلم سينمائي', poster: null });
+      }
+    } catch (e) {
+      if (typeof callback === 'function') callback(null);
+    }
+  });
+
   // 3. تبديل وضع العرض
   socket.on('switch-mode', ({ roomId, mode }) => {
     const room = rooms[roomId];
