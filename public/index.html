@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🍿 سهرة بلس | قاعة السينما الافتراضية والتزامن اللحظي</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- شريط الملاحة العلوي بنمط نتفليكس -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-logo">🍿 سهرة بلس</div>
+      <div class="brand-badge">CINEMA SYNC</div>
+    </div>
+
+    <!-- أزرار اختيار مصادر الوسائط -->
+    <div class="header-center">
+      <button class="source-btn active" onclick="document.getElementById('videoUrlInput').focus()">
+        🔗 رابط مباشر / سحابي
+      </button>
+
+      <button class="source-btn" onclick="document.getElementById('localFileInput').click()">
+        📁 ملف من الجهاز
+      </button>
+      <input type="file" id="localFileInput" accept="video/*" style="display: none;" onchange="handleLocalFile(event)">
+
+      <button class="source-btn" onclick="startScreenShare()">
+        🖥️ مشاركة الشاشة
+      </button>
+
+      <button class="source-btn" onclick="document.getElementById('subtitleFileInput').click()">
+        💬 ملف ترجمة (SRT)
+      </button>
+      <input type="file" id="subtitleFileInput" accept=".srt,.vtt" style="display: none;" onchange="handleSubtitleFile(event)">
+    </div>
+
+    <!-- معلومات القاعة والتحكم -->
+    <div class="header-actions">
+      <div class="room-badge" id="roomCodeBadge" onclick="copyInviteLink()" title="انقر لنسخ الرابط وإرساله للأصدقاء">
+        <span>🍿</span>
+        <span>قاعة: جاري التحميل...</span>
+      </div>
+
+      <button class="control-toggle" id="hostControlBtn" onclick="toggleHostLock()">
+        🔓 التحكم: للجميع
+      </button>
+    </div>
+  </header>
+
+  <!-- التخطيط الرئيسي: منطقة العرض + القائمة الجانبية -->
+  <main class="cinema-layout">
+
+    <!-- مسرح الفيديو الرئيسي -->
+    <section class="video-stage">
+      <!-- شريط إدخال الروابط السحابية والمباشرة -->
+      <div class="source-toolbar" id="urlBarContainer">
+        <span style="font-weight: 700; color: var(--text-secondary);">رابط العرض:</span>
+        <input type="text" id="videoUrlInput" placeholder="أدخل رابط فيديو مباشر (MP4, WebM, HLS, أو رابط سحابي)..." value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">
+        <button class="btn-primary" onclick="applyVideoUrl()">عرض وتزامن 🎬</button>
+        <button class="btn-secondary" onclick="videoUrlInput.value='https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'; applyVideoUrl();">فيلم تجريبي 2 🐘</button>
+      </div>
+
+      <!-- مشغل الفيديو السينمائي -->
+      <div class="player-wrapper">
+        <video id="cinemaPlayer" controls playsinline crossorigin="anonymous">
+          <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+          متصفحك لا يدعم مشغل الفيديو.
+        </video>
+
+        <!-- طبقة التفاعلات التعبيرية الطافية -->
+        <div class="floating-reactions-box" id="reactionsBox"></div>
+
+        <!-- إشعار التزامن السريع Toast -->
+        <div class="sync-toast" id="syncToast"></div>
+      </div>
+    </section>
+
+    <!-- القائمة الجانبية: الشات والحضور -->
+    <aside class="cinema-sidebar">
+      <div class="sidebar-tabs">
+        <button class="tab-btn active" id="tabBtnChat" onclick="switchSidebarTab('chat')">
+          💬 الدردشة الحية
+        </button>
+        <button class="tab-btn" id="tabBtnUsers" onclick="switchSidebarTab('users')">
+          👥 الحضور (<span id="usersCountBadge">1</span>)
+        </button>
+      </div>
+
+      <!-- محتوى تبويب الدردشة -->
+      <div class="tab-content active" id="tabContentChat">
+        <div class="chat-messages" id="chatMessages"></div>
+
+        <!-- شريط التفاعلات السريعة (One-Click Floating Reactions) -->
+        <div class="reactions-bar">
+          <button class="reaction-btn" onclick="sendReaction('🍿')" title="فشار">🍿</button>
+          <button class="reaction-btn" onclick="sendReaction('😂')" title="ضحك">😂</button>
+          <button class="reaction-btn" onclick="sendReaction('❤️')" title="قلب">❤️</button>
+          <button class="reaction-btn" onclick="sendReaction('😱')" title="صدمة">😱</button>
+          <button class="reaction-btn" onclick="sendReaction('🔥')" title="حماس">🔥</button>
+          <button class="reaction-btn" onclick="sendReaction('👏')" title="تصفيق">👏</button>
+        </div>
+
+        <!-- حقل إرسال رسالة -->
+        <div class="chat-input-bar">
+          <input type="text" id="chatInput" placeholder="اكتب رسالة للسهرة..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+          <button class="btn-primary" onclick="sendChatMessage()">إرسال</button>
+        </div>
+      </div>
+
+      <!-- محتوى تبويب الحضور -->
+      <div class="tab-content" id="tabContentUsers">
+        <div class="users-list" id="usersList"></div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- نافذة الترحيب والدخول لقاعة السينما -->
+  <div class="modal-overlay" id="welcomeModal">
+    <div class="modal-box">
+      <div class="modal-logo">🍿</div>
+      <h2 class="modal-title">أهلاً بك في قاعة سهرة بلس</h2>
+      <p class="modal-desc">منصة المشاهدة الجماعية المتزامنة مع أصحابك من أي مكان وأي جهاز بجودة سينمائية كاملة وبدون قيود.</p>
+
+      <div class="modal-form">
+        <div class="input-group">
+          <label>اسمك في السهرة:</label>
+          <input type="text" id="usernameInput" class="modal-input" placeholder="مثال: أحمد، عمر، سارة..." autofocus>
+        </div>
+
+        <div class="input-group">
+          <label>رمز القاعة (اختياري للانضمام لقاعة موجودة):</label>
+          <input type="text" id="customRoomInput" class="modal-input" placeholder="مثال: sahra-2026">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-primary" onclick="enterCinema(false)">دخول القاعة 🍿</button>
+        <button class="btn-secondary" onclick="enterCinema(true)">إنشاء قاعة جديدة 🎲</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- مكتبة Socket.io وسكريبت التطبيق -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
