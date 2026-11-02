@@ -71,12 +71,16 @@ async function getOrLaunchBrowser(roomId, io, profileName = 'high') {
       return null;
     };
 
-    // إزالة طبقات اصطياد النقرات مثل adfox-cover والطبقات ذات z-index فلكي
+    // إزالة طبقات اصطياد النقرات وإعلانات الفيديو المنبثقة
     function killAdOverlays() {
       const badSelectors = [
         '#adfox-cover',
         '[id*="adfox"]',
         '[class*="adfox"]',
+        '[class*="jw-ad"]',
+        '.jw-ad-container',
+        '.jw-vast',
+        '[class*="vast"]',
         'div[style*="z-index: 2147483647"]',
         'div[style*="z-index: 9999999"]',
         'div[style*="z-index:9999999"]',
@@ -100,14 +104,57 @@ async function getOrLaunchBrowser(roomId, io, profileName = 'high') {
           }
         } catch (e) {}
       });
+
+      // إزالة نوافذ إعلانات البونص والمراهنات والمؤقتات المزعجة (HURRY UP / Bonus / Casino)
+      const adKeywords = /hurry up|claim your bonus|get bonus|1xbet|melbet|mostbet|casino|win real money|spin & win|time runs out/i;
+      document.querySelectorAll('div, section, aside, a, p, span').forEach(el => {
+        try {
+          if (el.children.length <= 4 && adKeywords.test(el.innerText || '')) {
+            const modal = el.closest('div[style*="position"], .modal, .popup, [class*="dialog"]') || el;
+            if (modal && modal !== document.body && modal !== document.documentElement) {
+              modal.remove();
+            }
+          }
+        } catch (e) {}
+      });
     }
 
-    setInterval(killAdOverlays, 250);
+    setInterval(killAdOverlays, 200);
     window.addEventListener('DOMContentLoaded', killAdOverlays);
     window.addEventListener('load', killAdOverlays);
   });
 
   const client = await page.target().createCDPSession();
+
+  // تفعيل حظر شبكات الإعلانات والفيديو التلقائي على مستوى بروتوكول الشبكة
+  try {
+    await client.send('Network.enable');
+    await client.send('Network.setBlockedURLs', {
+      urls: [
+        '*vast.js*',
+        '*safflorfaring*',
+        '*adfox*',
+        '*propellerads*',
+        '*adsterra*',
+        '*exoclick*',
+        '*hilltopads*',
+        '*popcash*',
+        '*popads*',
+        '*clickadu*',
+        '*adnxs*',
+        '*adsrvr*',
+        '*histats*',
+        '*dtscout*',
+        '*1xbet*',
+        '*melbet*',
+        '*mostbet*',
+        '*betwinner*',
+        '*doubleclick*',
+        '*googlesyndication*',
+        '*traffic*'
+      ]
+    });
+  } catch (e) {}
 
   const sessionData = {
     browser,
