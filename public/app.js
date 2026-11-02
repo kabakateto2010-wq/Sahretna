@@ -52,6 +52,13 @@ if (initialRoomFromUrl) {
 // تعيين اسم افتراضي مسبقاً للتسهيل
 usernameInput.value = 'أحمد_' + Math.floor(Math.random() * 900 + 100);
 
+function selectAvatar(emoji, el) {
+  document.querySelectorAll('.avatar-opt').forEach(a => a.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+  const input = document.getElementById('selectedAvatarInput');
+  if (input) input.value = emoji;
+}
+
 function enterCinema(isNewRoom = false) {
   let name = usernameInput.value.trim();
   if (!name) name = 'صديق_' + Math.floor(Math.random() * 900 + 100);
@@ -61,6 +68,9 @@ function enterCinema(isNewRoom = false) {
     room = 'sahra-' + Math.floor(Math.random() * 9000 + 1000);
   }
 
+  const avatarInput = document.getElementById('selectedAvatarInput');
+  const userAvatar = avatarInput ? avatarInput.value : '🍿';
+
   currentUsername = name;
   currentRoomId = room;
 
@@ -68,12 +78,12 @@ function enterCinema(isNewRoom = false) {
   window.history.pushState({ path: newUrl }, '', newUrl);
 
   welcomeModal.style.display = 'none';
-  roomCodeBadge.innerHTML = `<span>🍿</span><span>قاعة: ${currentRoomId}</span><small style="opacity:0.7">(نسخ الرابط)</small>`;
+  roomCodeBadge.innerHTML = `<span>${userAvatar}</span><span>قاعة: ${currentRoomId}</span><small style="opacity:0.7">(نسخ الرابط)</small>`;
 
   socket.emit('join-room', {
     roomId: currentRoomId,
     username: currentUsername,
-    avatar: '🍿'
+    avatar: userAvatar
   });
 }
 
@@ -227,6 +237,24 @@ browserCanvas.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 browserCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ==============================================================
+// إخفاء شريط التحكم ومؤشر الماوس تلقائياً أثناء المشاهدة (Smart Cinema Auto-Hide)
+// ==============================================================
+let idleTimer = null;
+function resetIdleTimer() {
+  browserContainer.classList.remove('idle');
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    if (document.activeElement !== browserUrlInput && (!favoritesModal || favoritesModal.style.display !== 'flex')) {
+      browserContainer.classList.add('idle');
+    }
+  }, 2800);
+}
+
+browserContainer.addEventListener('mousemove', resetIdleTimer);
+browserContainer.addEventListener('touchstart', resetIdleTimer, { passive: true });
+browserContainer.addEventListener('keydown', resetIdleTimer);
 
 // معالجة ضغطات الكيبورد والكتابة داخل المتصفح الافتراضي
 browserContainer.addEventListener('keydown', (e) => {

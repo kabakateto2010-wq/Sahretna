@@ -1,27 +1,31 @@
 :root {
-  --bg-main: #0a0a0c;
-  --bg-card: #141418;
-  --bg-hover: #1f1f26;
+  --bg-main: #07070a;
+  --bg-surface: #0e0e14;
+  --bg-card: rgba(18, 18, 25, 0.78);
+  --bg-hover: #1c1c26;
   --netflix-red: #e50914;
-  --netflix-red-hover: #b80710;
+  --netflix-red-hover: #f40612;
+  --netflix-glow: rgba(229, 9, 20, 0.4);
   --text-primary: #ffffff;
-  --text-secondary: #a3a3a8;
-  --text-muted: #6e6e73;
-  --border-subtle: #26262e;
-  --border-focus: #e50914;
-  --cinema-glow: rgba(229, 9, 20, 0.25);
-  --success: #22c55e;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --text-secondary: #a8a8b2;
+  --text-muted: #6b6b75;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-glow: rgba(229, 9, 20, 0.55);
+  --cinema-glow: rgba(229, 9, 20, 0.28);
+  --success: #10b981;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'GE SS Two', 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -32,50 +36,83 @@ body {
   flex-direction: column;
   overflow: hidden;
   user-select: none;
+  background-image: radial-gradient(circle at 50% 0%, rgba(229, 9, 20, 0.06) 0%, transparent 60%);
 }
 
 /* ================== Top Navigation Header ================== */
 .navbar {
-  height: 60px;
-  background: rgba(14, 14, 18, 0.95);
-  backdrop-filter: blur(12px);
+  height: 64px;
+  background: rgba(10, 10, 15, 0.85);
+  backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
   z-index: 50;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .brand-logo {
   font-size: 22px;
   font-weight: 900;
   color: var(--netflix-red);
+  text-shadow: 0 0 16px var(--netflix-glow);
+  letter-spacing: -0.5px;
 }
 
 .brand-badge {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  font-size: 10px;
+  background: rgba(229, 9, 20, 0.12);
+  border: 1px solid rgba(229, 9, 20, 0.3);
+  color: #ff4d58;
+  font-size: 9px;
   font-weight: 800;
   padding: 3px 8px;
   border-radius: var(--radius-sm);
+  letter-spacing: 0.5px;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  background: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #10b981;
+  animation: pulseDot 2s infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
 }
 
 .mode-switcher {
   display: flex;
-  background: #111116;
+  background: rgba(18, 18, 25, 0.85);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  padding: 3px;
-  gap: 4px;
+  padding: 4px;
+  gap: 6px;
+  backdrop-filter: blur(10px);
 }
 
 .mode-btn {
@@ -90,9 +127,15 @@ body {
   transition: var(--transition);
 }
 
+.mode-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .mode-btn.active {
   background: var(--netflix-red);
   color: #fff;
+  box-shadow: 0 2px 10px rgba(229, 9, 20, 0.4);
 }
 
 .header-actions {
@@ -164,9 +207,10 @@ body {
 }
 
 .browser-nav-bar {
-  background: #14141a;
+  background: rgba(14, 14, 20, 0.92);
+  backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-subtle);
-  padding: 8px 14px;
+  padding: 8px 16px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -174,11 +218,11 @@ body {
 }
 
 .nav-ctrl-btn {
-  background: #202028;
-  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -189,38 +233,48 @@ body {
 }
 
 .nav-ctrl-btn:hover {
-  background: #2d2d38;
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
+  transform: translateY(-1px);
 }
 
 .browser-url-input {
   flex: 1;
-  background: #0a0a0d;
-  border: 1px solid var(--border-subtle);
+  background: rgba(8, 8, 12, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #fff;
-  padding: 8px 14px;
-  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  border-radius: 20px;
   font-size: 13px;
+  font-weight: 500;
   outline: none;
+  transition: var(--transition);
 }
 
 .browser-url-input:focus {
-  border-color: var(--border-focus);
+  border-color: rgba(229, 9, 20, 0.8);
+  background: rgba(12, 12, 18, 0.95);
+  box-shadow: 0 0 16px rgba(229, 9, 20, 0.3);
 }
 
 .quality-selector-box {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #1e1e28;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 2px 8px;
+  background: rgba(26, 26, 36, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 3px 12px;
+  transition: var(--transition);
+}
+
+.quality-selector-box:hover {
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .quality-label {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--text-muted);
 }
 
@@ -229,7 +283,7 @@ body {
   color: #fff;
   border: none;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   outline: none;
   cursor: pointer;
   padding: 4px 2px;
@@ -241,16 +295,16 @@ body {
 }
 
 .shortcut-pill.highlight {
-  background: rgba(229, 9, 20, 0.2);
+  background: rgba(229, 9, 20, 0.18);
   border-color: rgba(229, 9, 20, 0.5);
   color: #ff5e67;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .shortcuts-bar {
-  background: #0f0f14;
+  background: rgba(11, 11, 16, 0.95);
   border-bottom: 1px solid var(--border-subtle);
-  padding: 6px 14px;
+  padding: 6px 16px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -258,33 +312,56 @@ body {
 }
 
 .shortcut-pill {
-  background: #1c1c24;
-  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
-  padding: 3px 10px;
-  border-radius: 12px;
+  padding: 4px 12px;
+  border-radius: 14px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   transition: var(--transition);
 }
 
 .shortcut-pill:hover {
-  background: #2a2a38;
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
-  border-color: #444;
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
 }
 
 .browser-viewport-container {
   flex: 1;
   position: relative;
-  background: #050508;
+  background: #040406;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   outline: none;
+}
+
+/* هالة الإضاءة السينمائية المحيطية (Ambilight Cinema Glow) */
+.ambient-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  height: 84%;
+  border-radius: 40px;
+  background: radial-gradient(circle, rgba(229, 9, 20, 0.24) 0%, rgba(59, 130, 246, 0.14) 40%, rgba(147, 51, 234, 0.1) 70%, transparent 90%);
+  filter: blur(70px);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.85;
+  animation: ambientPulse 7s ease-in-out infinite alternate;
+}
+
+@keyframes ambientPulse {
+  0% { opacity: 0.65; transform: translate(-50%, -50%) scale(0.97); }
+  100% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.02); }
 }
 
 #browserCanvas {
@@ -296,6 +373,20 @@ body {
   background: #000;
   cursor: default;
   display: block;
+  z-index: 2;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7);
+  border-radius: 4px;
+}
+
+/* وضع السكون الذكي لإخفاء شريط التحكم والماوس تلقائياً أثناء المشاهدة */
+.browser-viewport-container.idle {
+  cursor: none !important;
+}
+
+.browser-viewport-container.idle .cinema-playback-bar {
+  opacity: 0;
+  transform: translateX(-50%) translateY(25px);
+  pointer-events: none;
 }
 
 .browser-loading {
@@ -498,28 +589,33 @@ body {
 }
 
 .msg-body {
-  background: #1c1c24;
-  padding: 8px 12px;
-  border-radius: 4px 12px 12px 12px;
+  background: rgba(28, 28, 38, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 8px 14px;
+  border-radius: 4px 14px 14px 14px;
   font-size: 13px;
   color: #fff;
-  line-height: 1.4;
+  line-height: 1.5;
   align-self: flex-start;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .msg-item.mine .msg-body {
-  background: #282836;
-  border: 1px solid rgba(229, 9, 20, 0.3);
-  border-radius: 12px 4px 12px 12px;
+  background: linear-gradient(135deg, rgba(229, 9, 20, 0.9) 0%, rgba(180, 7, 16, 0.92) 100%);
+  border: none;
+  border-radius: 14px 4px 14px 14px;
+  box-shadow: 0 4px 16px rgba(229, 9, 20, 0.35);
 }
 
 .msg-system {
-  background: rgba(229, 9, 20, 0.1);
-  border: 1px solid rgba(229, 9, 20, 0.2);
+  background: rgba(229, 9, 20, 0.12);
+  border: 1px solid rgba(229, 9, 20, 0.25);
   color: #fca5a5;
   font-size: 11px;
-  padding: 5px 10px;
-  border-radius: 4px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 14px;
   text-align: center;
   align-self: center;
 }
@@ -527,23 +623,25 @@ body {
 .reactions-bar {
   display: flex;
   justify-content: space-around;
-  padding: 6px;
-  background: #111116;
+  padding: 8px 6px;
+  background: rgba(17, 17, 22, 0.9);
+  backdrop-filter: blur(10px);
   border-top: 1px solid var(--border-subtle);
 }
 
 .reaction-btn {
   background: transparent;
   border: none;
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: transform 0.15s ease;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background 0.18s ease;
 }
 
 .reaction-btn:hover {
-  transform: scale(1.3);
+  transform: scale(1.35) translateY(-2px);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .chat-input-bar {
@@ -655,30 +753,67 @@ body {
   outline: none;
 }
 
+/* اختيار شخصية المشاهدة (Netflix Avatars) */
+.avatar-picker {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.avatar-opt {
+  font-size: 24px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.avatar-opt:hover {
+  transform: scale(1.18);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.avatar-opt.selected {
+  border-color: var(--netflix-red);
+  background: rgba(229, 9, 20, 0.22);
+  box-shadow: 0 0 14px rgba(229, 9, 20, 0.55);
+  transform: scale(1.12);
+}
+
 /* ================== Cinema Floating Playback Bar ================== */
 .cinema-playback-bar {
   position: absolute;
-  bottom: 14px;
+  bottom: 18px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(14, 14, 18, 0.88);
-  backdrop-filter: blur(12px);
+  background: rgba(12, 12, 17, 0.88);
+  backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 30px;
-  padding: 6px 14px;
+  border-radius: 40px;
+  padding: 8px 16px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   z-index: 25;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-  opacity: 0.85;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 0, 0, 0.5);
+  opacity: 0.92;
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   max-width: 95%;
   overflow-x: auto;
 }
 
 .cinema-playback-bar:hover {
   opacity: 1;
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 14px 48px rgba(0, 0, 0, 0.85), 0 0 25px rgba(229, 9, 20, 0.15);
 }
 
 .playback-btn {
@@ -1139,4 +1274,23 @@ body {
 
 .fav-delete-btn:hover {
   color: #ef4444;
+}
+
+/* شريط التمرير فائق الأناقة والراحة للعين */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--netflix-red);
 }

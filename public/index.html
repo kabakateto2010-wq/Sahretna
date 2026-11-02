@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🍿 سهرة بلس | متصفح السينما الافتراضي المباشر (Hyperbeam Engine)</title>
+  <!-- خطوط Cairo و GE SS Two الفاخرة -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,6 +17,10 @@
     <div class="brand">
       <div class="brand-logo">🍿 سهرة بلس</div>
       <div class="brand-badge">HYPERBEAM ENGINE</div>
+      <div class="connection-status" title="حالة الاتصال بالسيرفر">
+        <span class="status-dot"></span>
+        <span class="status-text">مباشر</span>
+      </div>
     </div>
 
     <!-- أزرار التبديل بين وضع المتصفح الافتراضي ومشغل الفيديو -->
@@ -93,6 +101,8 @@
 
         <!-- مساحة عرض شاشة المتصفح الافتراضي التفاعلي -->
         <div class="browser-viewport-container" id="browserContainer" tabindex="0">
+          <!-- إضاءة السينما المحيطية الفاخرة (Cinema Ambient Glow) -->
+          <div class="ambient-glow" id="ambientGlow"></div>
           <canvas id="browserCanvas" width="1280" height="720"></canvas>
           <div id="browserLoadingOverlay" class="browser-loading">
             <div class="spinner"></div>
@@ -191,7 +201,21 @@
       <h2 style="font-size:20px; font-weight:800;">سهرة بلس | متصفح السينما المفتوح</h2>
       <p style="font-size:13px; color:var(--text-secondary); line-height:1.5;">متصفح حقيقي متزامن ومفتوح لجميع مواقع الإنترنت والأفلام واليوتيوب بنمط Hyperbeam.</p>
 
-      <div style="display:flex; flex-direction:column; gap:12px; text-align:right;">
+      <div style="display:flex; flex-direction:column; gap:14px; text-align:right;">
+        <div>
+          <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:8px;">اختر شخصيتك السينمائية:</label>
+          <div class="avatar-picker" id="avatarPicker">
+            <span class="avatar-opt selected" onclick="selectAvatar('🍿', this)">🍿</span>
+            <span class="avatar-opt" onclick="selectAvatar('🎬', this)">🎬</span>
+            <span class="avatar-opt" onclick="selectAvatar('🐱', this)">🐱</span>
+            <span class="avatar-opt" onclick="selectAvatar('👑', this)">👑</span>
+            <span class="avatar-opt" onclick="selectAvatar('🚀', this)">🚀</span>
+            <span class="avatar-opt" onclick="selectAvatar('🎮', this)">🎮</span>
+            <span class="avatar-opt" onclick="selectAvatar('🦊', this)">🦊</span>
+            <span class="avatar-opt" onclick="selectAvatar('🕶️', this)">🕶️</span>
+          </div>
+          <input type="hidden" id="selectedAvatarInput" value="🍿">
+        </div>
         <div>
           <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">اسمك في السهرة:</label>
           <input type="text" id="usernameInput" class="modal-input" placeholder="اسمك المستعار..." autofocus>
