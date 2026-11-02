@@ -77,10 +77,10 @@
           <div class="quality-selector-box" title="التحكم في جودة البث وسرعته">
             <label for="browserQualitySelect" class="quality-label">الجودة:</label>
             <select id="browserQualitySelect" class="quality-select" onchange="changeBrowserQuality(this.value)">
-              <option value="ultra">💎 فائقة (1080p - نقاء سينمائي)</option>
-              <option value="high" selected>✨ عالية (720p - متوازنة)</option>
+              <option value="ultra">💎 فائقة (1080p - نقاء كريستال)</option>
+              <option value="high" selected>✨ عالية (1080p - نقاء فائق)</option>
               <option value="medium">⚡ متوسطة (سلسة)</option>
-              <option value="fast">🚀 خفيفة (انترنت ضعيف / بدون تهنيج)</option>
+              <option value="fast">🚀 خفيفة (انترنت ضعيف)</option>
             </select>
           </div>
 
@@ -91,6 +91,17 @@
             <input type="range" id="ambientBrightnessSlider" class="ambient-slider" min="0" max="100" value="70" oninput="setAmbientBrightness(this.value)">
             <span id="ambientBrightnessValue" class="ambient-val-badge">70%</span>
           </div>
+
+          <!-- التحكم في شفافية شاشة المتصفح (Browser Opacity) لمنع بياض المواقع وإظهار ما خلفها -->
+          <div class="opacity-control-box" title="التحكم في شفافية شاشة المتصفح لمنع بياض المواقع وإظهار ما خلفها">
+            <span class="ctrl-icon">🪟</span>
+            <label for="canvasOpacitySlider" class="ambient-ctrl-label">الشفافية:</label>
+            <input type="range" id="canvasOpacitySlider" class="ambient-slider" min="30" max="100" value="100" oninput="setCanvasOpacity(this.value)">
+            <span id="canvasOpacityValue" class="ambient-val-badge">100%</span>
+          </div>
+
+          <!-- زر الوضع الليلي السينمائي لتحويل الصفحات البيضاء الفاقعة إلى داكنة مريحة للعين -->
+          <button class="nav-ctrl-btn dark-mode-toggle-btn" id="cinemaDarkModeBtn" onclick="toggleCinemaDarkMode()" title="تحويل المواقع البيضاء إلى الوضع الليلي الداكن (Dark Mode)">🌙</button>
 
           <button class="nav-ctrl-btn" onclick="startScreenShare()" title="مشاركة الشاشة الحية مع الصوت">🖥️</button>
           <button class="nav-ctrl-btn fav-nav-btn" onclick="addCurrentToFavorites()" title="حفظ الفيلم الحالي في المفضلة">❤️</button>
@@ -141,7 +152,7 @@
               <span class="ambient-line"></span>
             </div>
           </div>
-          <canvas id="browserCanvas" width="1280" height="720"></canvas>
+          <canvas id="browserCanvas" width="1920" height="1080"></canvas>
           <div id="browserLoadingOverlay" class="browser-loading">
             <div class="spinner"></div>
             <span>جاري تشغيل المتصفح الافتراضي...</span>

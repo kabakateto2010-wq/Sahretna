@@ -14,12 +14,12 @@ if (!fs.existsSync(USER_DATA_DIR)) {
 
 const roomBrowsers = {};
 
-// إعدادات مستويات الجودة والسرعة
+// إعدادات مستويات الجودة والسرعة بدقة 1080p كريستالية لمنع أي بكسلة
 const QUALITY_PROFILES = {
-  ultra: { quality: 92, width: 1920, height: 1080, frameInterval: 33, label: '💎 فائقة (1080p)' },
-  high: { quality: 82, width: 1280, height: 720, frameInterval: 40, label: '✨ عالية (720p)' },
-  medium: { quality: 65, width: 1280, height: 720, frameInterval: 50, label: '⚡ متوسطة (متوازنة)' },
-  fast: { quality: 45, width: 960, height: 540, frameInterval: 70, label: '🚀 خفيفة (انترنت ضعيف)' }
+  ultra: { quality: 96, width: 1920, height: 1080, frameInterval: 30, label: '💎 فائقة (1080p - كريستال)' },
+  high: { quality: 90, width: 1920, height: 1080, frameInterval: 35, label: '✨ عالية (1080p - نقاء فائق)' },
+  medium: { quality: 80, width: 1440, height: 810, frameInterval: 45, label: '⚡ متوسطة (سلسة)' },
+  fast: { quality: 65, width: 1280, height: 720, frameInterval: 60, label: '🚀 خفيفة (انترنت ضعيف)' }
 };
 
 async function getOrLaunchBrowser(roomId, io, profileName = 'high') {

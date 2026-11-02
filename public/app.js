@@ -112,6 +112,8 @@ socket.on('browser-frame', (frameBase64) => {
       browserCanvas.width = img.width;
       browserCanvas.height = img.height;
     }
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, 0, 0);
     browserLoadingOverlay.classList.add('hidden');
   };
@@ -1017,7 +1019,70 @@ function initAmbientBrightness() {
   }
 }
 
-// تحديث العداد وشريط الوصول السريع وإضاءة السينما فور تحميل الصفحة
+// ==============================================================
+// التحكم في شفافية المتصفح والوضع الليلي (Canvas Opacity & Cinema Dark Mode)
+// ==============================================================
+const OPACITY_STORAGE_KEY = 'sahra_canvas_opacity';
+const DARK_MODE_STORAGE_KEY = 'sahra_cinema_dark_mode';
+let isCinemaDarkMode = false;
+
+function setCanvasOpacity(val) {
+  const num = Math.max(30, Math.min(100, parseInt(val, 10) || 100));
+  const opacity = (num / 100).toFixed(2);
+  document.documentElement.style.setProperty('--canvas-opacity', opacity);
+
+  const slider = document.getElementById('canvasOpacitySlider');
+  const badge = document.getElementById('canvasOpacityValue');
+  if (slider && slider.value != num) slider.value = num;
+  if (badge) badge.innerText = `${num}%`;
+
+  try {
+    localStorage.setItem(OPACITY_STORAGE_KEY, num.toString());
+  } catch (e) {}
+}
+
+function toggleCinemaDarkMode() {
+  isCinemaDarkMode = !isCinemaDarkMode;
+  const btn = document.getElementById('cinemaDarkModeBtn');
+  const canvas = document.getElementById('browserCanvas');
+
+  if (isCinemaDarkMode) {
+    if (canvas) canvas.classList.add('cinema-dark-invert');
+    if (btn) {
+      btn.classList.add('active');
+      btn.innerText = '☀️';
+      btn.title = 'العودة للوضع الطبيعي';
+    }
+    showToast('🌙 تم تفعيل الوضع الليلي السينمائي لحماية العين');
+  } else {
+    if (canvas) canvas.classList.remove('cinema-dark-invert');
+    if (btn) {
+      btn.classList.remove('active');
+      btn.innerText = '🌙';
+      btn.title = 'تحويل المواقع البيضاء إلى الوضع الليلي الداكن';
+    }
+    showToast('☀️ تم تفعيل الوضع الطبيعي للمتصفح');
+  }
+
+  try {
+    localStorage.setItem(DARK_MODE_STORAGE_KEY, isCinemaDarkMode ? '1' : '0');
+  } catch (e) {}
+}
+
+function initCanvasVisualControls() {
+  try {
+    const savedOpacity = localStorage.getItem(OPACITY_STORAGE_KEY);
+    setCanvasOpacity(savedOpacity !== null ? parseInt(savedOpacity, 10) : 100);
+
+    const savedDark = localStorage.getItem(DARK_MODE_STORAGE_KEY);
+    if (savedDark === '1') {
+      toggleCinemaDarkMode();
+    }
+  } catch (e) {}
+}
+
+// تحديث العداد وشريط الوصول السريع وإضاءة السينما وعناصر التحكم البصري فور تحميل الصفحة
 updateFavoritesBadge();
 renderQuickAccess();
 initAmbientBrightness();
+initCanvasVisualControls();
