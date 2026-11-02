@@ -330,6 +330,127 @@ async function startScreenShare() {
   }
 }
 
+// ==============================================================
+// التحكم في وسائط الفيلم العائمة (تقديم / تأخير / تشغيل / كتم)
+// ==============================================================
+function sendBrowserMedia(action, value = 10) {
+  if (currentActiveMode === 'browser') {
+    socket.emit('browser-media-control', { roomId: currentRoomId, action, value });
+    if (action === 'seek-forward') showToast(`⏩ تقديم +${value} ثواني`);
+    else if (action === 'seek-backward') showToast(`⏪ تأخير -${value} ثواني`);
+    else if (action === 'play-pause') showToast('⏯️ تشغيل / إيقاف مؤقت');
+    else if (action === 'toggle-mute') showToast('🔊 كتم / تشغيل الصوت');
+  } else {
+    // مشغل الفيديو المباشر
+    if (action === 'seek-forward') {
+      cinemaPlayer.currentTime = Math.min(cinemaPlayer.duration || cinemaPlayer.currentTime + 10, cinemaPlayer.currentTime + value);
+      showToast(`⏩ تقديم +${value} ثواني`);
+    } else if (action === 'seek-backward') {
+      cinemaPlayer.currentTime = Math.max(0, cinemaPlayer.currentTime - value);
+      showToast(`⏪ تأخير -${value} ثواني`);
+    } else if (action === 'play-pause') {
+      if (cinemaPlayer.paused) cinemaPlayer.play(); else cinemaPlayer.pause();
+    } else if (action === 'toggle-mute') {
+      cinemaPlayer.muted = !cinemaPlayer.muted;
+      showToast(cinemaPlayer.muted ? '🔇 تم كتم الصوت' : '🔊 تم تشغيل الصوت');
+    }
+  }
+}
+
+socket.on('browser-media-synced', ({ action, value, by }) => {
+  if (action === 'seek-forward') showToast(`⏩ قام ${by} بتقديم الفيلم +${value} ثواني`);
+  else if (action === 'seek-backward') showToast(`⏪ قام ${by} بتأخير الفيلم -${value} ثواني`);
+  else if (action === 'play-pause') showToast(`⏯️ قام ${by} بالضغط على تشغيل/إيقاف`);
+  else if (action === 'toggle-mute') showToast(`🔊 قام ${by} بتبديل كتم الصوت`);
+});
+
+// ==============================================================
+// ميزة الشاشة المصغرة (Picture-in-Picture) للموبايل والكمبيوتر
+// ==============================================================
+let pipVideoElement = null;
+
+async function togglePictureInPicture() {
+  try {
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture();
+      showToast('📺 تم إغلاق الشاشة المصغرة');
+      return;
+    }
+
+    if (currentActiveMode === 'browser') {
+      if (!pipVideoElement) {
+        pipVideoElement = document.createElement('video');
+        pipVideoElement.muted = true;
+        pipVideoElement.playsInline = true;
+        pipVideoElement.style.position = 'fixed';
+        pipVideoElement.style.bottom = '-9999px';
+        pipVideoElement.style.left = '-9999px';
+        pipVideoElement.style.width = '1px';
+        pipVideoElement.style.height = '1px';
+        pipVideoElement.style.opacity = '0';
+        pipVideoElement.style.pointerEvents = 'none';
+        document.body.appendChild(pipVideoElement);
+      }
+
+      const stream = browserCanvas.captureStream ? browserCanvas.captureStream(25) : null;
+      if (!stream) {
+        showToast('⚠️ خاصية البث المصغر غير مدعومة في هذا المتصفح');
+        return;
+      }
+      pipVideoElement.srcObject = stream;
+      await pipVideoElement.play();
+      if (pipVideoElement.requestPictureInPicture) {
+        await pipVideoElement.requestPictureInPicture();
+        showToast('📺 تم تشغيل الشاشة المصغرة خارج المتصفح (مثل يوتيوب)! 🍿');
+      } else {
+        showToast('⚠️ متصفحك لا يدعم Picture-in-Picture');
+      }
+    } else {
+      if (cinemaPlayer.requestPictureInPicture) {
+        await cinemaPlayer.requestPictureInPicture();
+        showToast('📺 تم تشغيل الشاشة المصغرة! 🍿');
+      } else {
+        showToast('⚠️ متصفحك لا يدعم Picture-in-Picture لمشغل الفيديو');
+      }
+    }
+  } catch (err) {
+    console.error('PiP Error:', err);
+    showToast('⚠️ لتفعيل الشاشة المصغرة يرجى النقر مرة أخرى للتأكيد');
+  }
+}
+
+// ==============================================================
+// ميزة ملء الشاشة المتكيفة (Fullscreen Toggle)
+// ==============================================================
+function toggleFullscreen() {
+  const elem = currentActiveMode === 'browser' ? browserContainer : document.querySelector('.player-container');
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen().catch(() => {});
+    } else if (elem.webkitRequestFullscreen) {
+      elem.webkitRequestFullscreen();
+    }
+    showToast('⛶ وضع ملء الشاشة');
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    }
+    showToast('⛶ تم إنهاء ملء الشاشة');
+  }
+}
+
+// تبديل ظهور الدردشة على شاشات الموبايل
+function toggleMobileChat() {
+  const layout = document.getElementById('cinemaMainLayout');
+  if (layout) {
+    layout.classList.toggle('mobile-chat-open');
+    const isOpen = layout.classList.contains('mobile-chat-open');
+    showToast(isOpen ? '💬 فُتحت نافذة الدردشة' : '🎬 تم إخفاء الدردشة لتركيز المشاهدة');
+  }
+}
+
 function handleSubtitleFile(e) {
   const file = e.target.files[0];
   if (!file) return;

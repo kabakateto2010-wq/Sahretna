@@ -116,7 +116,7 @@ async function getOrLaunchBrowser(roomId, io, profileName = 'high') {
     isRunning: true,
     quality: profileName,
     frameInterval: profile.frameInterval,
-    lastUrl: 'https://duckduckgo.com',
+    lastUrl: 'https://www.google.com',
     lastFrameTime: 0
   };
 
@@ -176,7 +176,7 @@ async function getOrLaunchBrowser(roomId, io, profileName = 'high') {
   });
 
   try {
-    await page.goto('https://duckduckgo.com', { waitUntil: 'domcontentloaded', timeout: 25000 });
+    await page.goto('https://www.google.com', { waitUntil: 'domcontentloaded', timeout: 25000 });
   } catch (err) {}
 
   return sessionData;
@@ -215,7 +215,7 @@ async function navigate(roomId, rawUrl, io) {
     if (cleanUrl.includes('.') && !cleanUrl.includes(' ')) {
       cleanUrl = 'https://' + cleanUrl;
     } else {
-      cleanUrl = 'https://duckduckgo.com/?q=' + encodeURIComponent(cleanUrl);
+      cleanUrl = 'https://www.google.com/search?q=' + encodeURIComponent(cleanUrl);
     }
   }
 
@@ -306,6 +306,53 @@ async function dispatchKey(roomId, event) {
   } catch (e) {}
 }
 
+// التحكم المباشر في تشغيل وسائط الفيديو والأفلام (تقديم / تأخير / إيقاف / كتم)
+async function controlMedia(roomId, action, value = 10) {
+  const session = roomBrowsers[roomId];
+  if (!session || !session.page) return;
+
+  console.log(`[VirtualBrowser] [${roomId}] التحكم في وسائط الفيديو: ${action} (${value})`);
+
+  // 1. تنفيذ برمجي مباشر على كل عناصر <video> في الصفحة الرئيسية وداخل جميع الـ iframes
+  try {
+    for (const frame of session.page.frames()) {
+      try {
+        await frame.evaluate((act, val) => {
+          const videos = Array.from(document.querySelectorAll('video'));
+          for (const v of videos) {
+            if (act === 'play-pause') {
+              if (v.paused) v.play().catch(() => {}); else v.pause();
+            } else if (act === 'seek-forward') {
+              v.currentTime = Math.min((v.duration || v.currentTime + 300), v.currentTime + (val || 10));
+            } else if (act === 'seek-backward') {
+              v.currentTime = Math.max(0, v.currentTime - (val || 10));
+            } else if (act === 'toggle-mute') {
+              v.muted = !v.muted;
+            }
+          }
+        }, action, value);
+      } catch (e) {}
+    }
+  } catch (e) {}
+
+  // 2. إرسال أزرار الكيبورد القياسية (Space / ArrowRight / ArrowLeft / M) كدعم إضافي لمشغلات يوتيوب والمشغلات المخصصة
+  try {
+    if (action === 'play-pause') {
+      await session.client.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+      await session.client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+    } else if (action === 'seek-forward') {
+      await session.client.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
+      await session.client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
+    } else if (action === 'seek-backward') {
+      await session.client.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 });
+      await session.client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 });
+    } else if (action === 'toggle-mute') {
+      await session.client.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'm', code: 'KeyM', windowsVirtualKeyCode: 77 });
+      await session.client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'm', code: 'KeyM', windowsVirtualKeyCode: 77 });
+    }
+  } catch (e) {}
+}
+
 async function closeBrowser(roomId) {
   const session = roomBrowsers[roomId];
   if (session) {
@@ -327,5 +374,6 @@ module.exports = {
   reload,
   dispatchMouse,
   dispatchKey,
+  controlMedia,
   closeBrowser
 };

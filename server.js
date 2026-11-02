@@ -45,7 +45,7 @@ io.on('connection', (socket) => {
         hostId: socket.id,
         hostOnlyControl: false,
         activeMode: 'browser',
-        browserUrl: 'https://duckduckgo.com',
+        browserUrl: 'https://www.google.com',
         browserQuality: 'high',
         videoState: {
           sourceType: 'url',
@@ -163,6 +163,19 @@ io.on('connection', (socket) => {
     room.browserQuality = quality;
     await virtualBrowser.setQuality(roomId, quality);
     io.to(roomId).emit('browser-quality-updated', { quality, by: socket.username });
+  });
+
+  socket.on('browser-media-control', async ({ roomId, action, value }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+
+    if (room.hostOnlyControl && socket.id !== room.hostId) {
+      socket.emit('action-denied', { reason: 'التحكم في وسائط الفيلم مقصور على المضيف حالياً.' });
+      return;
+    }
+
+    await virtualBrowser.controlMedia(roomId, action, value);
+    socket.to(roomId).emit('browser-media-synced', { action, value, by: socket.username });
   });
 
   // 3. تبديل وضع العرض

@@ -654,3 +654,209 @@ body {
   font-size: 14px;
   outline: none;
 }
+
+/* ================== Cinema Floating Playback Bar ================== */
+.cinema-playback-bar {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(14, 14, 18, 0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 30px;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 25;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  opacity: 0.85;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  max-width: 95%;
+  overflow-x: auto;
+}
+
+.cinema-playback-bar:hover {
+  opacity: 1;
+}
+
+.playback-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.playback-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.playback-btn.play-pause-btn {
+  background: var(--netflix-red);
+  border-color: var(--netflix-red);
+}
+
+.playback-btn.play-pause-btn:hover {
+  background: var(--netflix-red-hover);
+}
+
+.playback-btn.pip-btn {
+  background: #2563eb;
+  border-color: #3b82f6;
+}
+
+.playback-btn.pip-btn:hover {
+  background: #1d4ed8;
+}
+
+.playback-btn.fullscreen-btn {
+  background: #4b5563;
+}
+
+.playback-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 4px;
+}
+
+.mobile-chat-toggle {
+  display: none;
+  background: #202028;
+  border: 1px solid var(--border-subtle);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ================== Fullscreen Adaptations ================== */
+:fullscreen .cinema-playback-bar,
+:-webkit-full-screen .cinema-playback-bar {
+  bottom: 24px;
+  padding: 8px 18px;
+}
+
+:fullscreen #browserCanvas,
+:-webkit-full-screen #browserCanvas {
+  max-width: 100vw;
+  max-height: 100vh;
+  width: auto;
+  height: 100%;
+}
+
+/* ================== Responsive Design (Mobile & Tablet) ================== */
+@media (max-width: 992px) {
+  .navbar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .mobile-chat-toggle {
+    display: block;
+  }
+
+  .cinema-layout {
+    flex-direction: column;
+    height: calc(100vh - 56px);
+  }
+
+  .main-stage {
+    width: 100%;
+    height: 100%;
+    flex: 1;
+  }
+
+  .chat-sidebar {
+    position: fixed;
+    top: 56px;
+    bottom: 0;
+    right: 0;
+    width: 320px;
+    max-width: 85vw;
+    background: #111116;
+    z-index: 50;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.7);
+  }
+
+  .cinema-layout.mobile-chat-open .chat-sidebar {
+    transform: translateX(0);
+  }
+
+  .browser-nav-bar {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .browser-url-input {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .quality-selector-box {
+    padding: 2px 4px;
+  }
+
+  .quality-select {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 600px) {
+  .brand-badge {
+    display: none;
+  }
+
+  .brand-logo {
+    font-size: 15px;
+  }
+
+  .mode-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .shortcuts-bar {
+    padding: 4px 8px;
+  }
+
+  .shortcut-pill {
+    padding: 2px 8px;
+    font-size: 10px;
+  }
+
+  .cinema-playback-bar {
+    bottom: 8px;
+    padding: 4px 8px;
+    gap: 4px;
+  }
+
+  .playback-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .quality-label {
+    display: none;
+  }
+
+  .browser-nav-bar .btn-primary {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}

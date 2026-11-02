@@ -35,11 +35,15 @@
       <button class="control-toggle" id="hostControlBtn" onclick="toggleHostLock()">
         🔓 التحكم: للجميع
       </button>
+
+      <button class="mobile-chat-toggle" id="mobileChatToggle" onclick="toggleMobileChat()" title="فتح / إغلاق الدردشة">
+        💬 الدردشة
+      </button>
     </div>
   </header>
 
   <!-- التخطيط الرئيسي -->
-  <main class="cinema-layout">
+  <main class="cinema-layout" id="cinemaMainLayout">
 
     <section class="main-stage">
 
@@ -50,9 +54,9 @@
           <button class="nav-ctrl-btn" onclick="browserGoBack()" title="للخلف">◀</button>
           <button class="nav-ctrl-btn" onclick="browserGoForward()" title="للأمام">▶</button>
           <button class="nav-ctrl-btn" onclick="browserReload()" title="تحديث">🔄</button>
-          <button class="nav-ctrl-btn" onclick="browserNavigateTo('https://duckduckgo.com')" title="الصفحة الرئيسية">🏠</button>
+          <button class="nav-ctrl-btn" onclick="browserNavigateTo('https://www.google.com')" title="الصفحة الرئيسية (Google)">🏠</button>
 
-          <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="اكتب اسم الفيلم أو أي رابط في العالم (مثال: https://egydead.live أو يوتيوب)..." value="https://duckduckgo.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
+          <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="ابحث في Google أو اكتب أي رابط (مثال: egydead أو youtube)..." value="https://www.google.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
 
           <button class="btn-primary" onclick="applyBrowserUrl()">تصفح 🚀</button>
 
@@ -73,8 +77,8 @@
         <!-- أزرار الاختصارات السريعة -->
         <div class="shortcuts-bar">
           <span style="font-size: 11px; color: var(--text-muted);">اختصارات سريعة:</span>
-          <span class="shortcut-pill highlight" onclick="browserNavigateTo('https://egydead.live')">🍿 ايجي ديد (EgyDead)</span>
-          <span class="shortcut-pill" onclick="browserNavigateTo('https://duckduckgo.com')">🔍 بحث DuckDuckGo</span>
+          <span class="shortcut-pill highlight" onclick="browserNavigateTo('https://www.google.com')">🔍 بحث Google (الافتراضي)</span>
+          <span class="shortcut-pill" onclick="browserNavigateTo('https://egydead.live')">🍿 ايجي ديد (EgyDead)</span>
           <span class="shortcut-pill" onclick="browserNavigateTo('https://www.youtube.com')">🎬 يوتيوب</span>
           <span class="shortcut-pill" onclick="browserNavigateTo('https://www.dailymotion.com')">🍿 ديلي موشن</span>
           <span class="shortcut-pill" onclick="browserNavigateTo('https://archive.org/details/movies')">🎥 أرشيف الأفلام</span>
@@ -88,6 +92,29 @@
             <div class="spinner"></div>
             <span>جاري تشغيل المتصفح الافتراضي...</span>
           </div>
+
+          <!-- شريط التحكم السينمائي العائم (تقديم، تأخير، تشغيل، صورة مصغرة، ملء الشاشة) -->
+          <div class="cinema-playback-bar" id="browserPlaybackBar">
+            <button class="playback-btn" onclick="sendBrowserMedia('seek-backward', 10)" title="تأخير 10 ثواني (⏪ 10s)">
+              ⏪ 10ث
+            </button>
+            <button class="playback-btn play-pause-btn" onclick="sendBrowserMedia('play-pause')" title="تشغيل / إيقاف مؤقت (Space)">
+              ⏯️ تشغيل / إيقاف
+            </button>
+            <button class="playback-btn" onclick="sendBrowserMedia('seek-forward', 10)" title="تقديم 10 ثواني (⏩ 10s)">
+              ⏩ 10ث
+            </button>
+            <button class="playback-btn" onclick="sendBrowserMedia('toggle-mute')" title="كتم / تشغيل الصوت (M)">
+              🔊 الصوت
+            </button>
+            <div class="playback-divider"></div>
+            <button class="playback-btn pip-btn" onclick="togglePictureInPicture()" title="شاشة مصغرة تطفو خارج المتصفح (Picture-in-Picture)">
+              📺 شاشة مصغرة (PiP)
+            </button>
+            <button class="playback-btn fullscreen-btn" onclick="toggleFullscreen()" title="ملء الشاشة بالكامل (Fullscreen)">
+              ⛶ ملء الشاشة
+            </button>
+          </div>
         </div>
       </div>
 
@@ -100,6 +127,8 @@
           <input type="file" id="localFileInput" accept="video/*" style="display:none;" onchange="handleLocalFile(event)">
           <button class="btn-secondary" onclick="document.getElementById('subtitleFileInput').click()">💬 ترجمة SRT</button>
           <input type="file" id="subtitleFileInput" accept=".srt,.vtt" style="display:none;" onchange="handleSubtitleFile(event)">
+          <button class="btn-secondary" onclick="togglePictureInPicture()" title="شاشة مصغرة">📺 مصغرة</button>
+          <button class="btn-secondary" onclick="toggleFullscreen()" title="ملء الشاشة">⛶ ملء الشاشة</button>
         </div>
 
         <div class="player-container">
