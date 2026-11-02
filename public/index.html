@@ -52,16 +52,29 @@
           <button class="nav-ctrl-btn" onclick="browserReload()" title="تحديث">🔄</button>
           <button class="nav-ctrl-btn" onclick="browserNavigateTo('https://duckduckgo.com')" title="الصفحة الرئيسية">🏠</button>
 
-          <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="اكتب اسم الفيلم أو أي رابط في العالم (مثال: https://www.youtube.com أو اسم الموقع)..." value="https://duckduckgo.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
+          <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="اكتب اسم الفيلم أو أي رابط في العالم (مثال: https://egydead.live أو يوتيوب)..." value="https://duckduckgo.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
 
           <button class="btn-primary" onclick="applyBrowserUrl()">تصفح 🚀</button>
+
+          <!-- زر التحكم في جودة البث لمنع البكسلة والتهنيج -->
+          <div class="quality-selector-box" title="التحكم في جودة البث وسرعته">
+            <label for="browserQualitySelect" class="quality-label">الجودة:</label>
+            <select id="browserQualitySelect" class="quality-select" onchange="changeBrowserQuality(this.value)">
+              <option value="ultra">💎 فائقة (1080p - نقاء سينمائي)</option>
+              <option value="high" selected>✨ عالية (720p - متوازنة)</option>
+              <option value="medium">⚡ متوسطة (سلسة)</option>
+              <option value="fast">🚀 خفيفة (انترنت ضعيف / بدون تهنيج)</option>
+            </select>
+          </div>
+
           <button class="nav-ctrl-btn" onclick="startScreenShare()" title="مشاركة الشاشة الحية مع الصوت">🖥️</button>
         </div>
 
         <!-- أزرار الاختصارات السريعة -->
         <div class="shortcuts-bar">
           <span style="font-size: 11px; color: var(--text-muted);">اختصارات سريعة:</span>
-          <span class="shortcut-pill" onclick="browserNavigateTo('https://duckduckgo.com')">🔍 بحث عام (بدون كابتشا)</span>
+          <span class="shortcut-pill highlight" onclick="browserNavigateTo('https://egydead.live')">🍿 ايجي ديد (EgyDead)</span>
+          <span class="shortcut-pill" onclick="browserNavigateTo('https://duckduckgo.com')">🔍 بحث DuckDuckGo</span>
           <span class="shortcut-pill" onclick="browserNavigateTo('https://www.youtube.com')">🎬 يوتيوب</span>
           <span class="shortcut-pill" onclick="browserNavigateTo('https://www.dailymotion.com')">🍿 ديلي موشن</span>
           <span class="shortcut-pill" onclick="browserNavigateTo('https://archive.org/details/movies')">🎥 أرشيف الأفلام</span>

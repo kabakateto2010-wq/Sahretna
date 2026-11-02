@@ -25,6 +25,7 @@ const btnModeBrowser = document.getElementById('btnModeBrowser');
 const btnModePlayer = document.getElementById('btnModePlayer');
 
 const browserUrlInput = document.getElementById('browserUrlInput');
+const browserQualitySelect = document.getElementById('browserQualitySelect');
 const browserContainer = document.getElementById('browserContainer');
 const browserCanvas = document.getElementById('browserCanvas');
 const browserLoadingOverlay = document.getElementById('browserLoadingOverlay');
@@ -92,11 +93,16 @@ function showToast(text, duration = 3000) {
 // 2. التحكم في المتصفح الافتراضي (Canvas Stream & Inputs)
 // ==============================================================
 
-// استقبال إطارات البث المباشر للشاشة ورسمها بسلاسة
+// استقبال إطارات البث المباشر للشاشة ورسمها بسلاسة ونقاء عالي
 socket.on('browser-frame', (frameBase64) => {
   const img = new Image();
   img.onload = () => {
-    ctx.drawImage(img, 0, 0, browserCanvas.width, browserCanvas.height);
+    // مطابقة أبعاد الكانفاس الحقيقية مع جودة الإطار المستقبل بدقة 1:1 بدون أي بكسلة
+    if (browserCanvas.width !== img.width || browserCanvas.height !== img.height) {
+      browserCanvas.width = img.width;
+      browserCanvas.height = img.height;
+    }
+    ctx.drawImage(img, 0, 0);
     browserLoadingOverlay.classList.add('hidden');
   };
   img.src = frameBase64;
@@ -108,6 +114,22 @@ socket.on('sync-browser-url', ({ url }) => {
     browserUrlInput.value = url;
   }
 });
+
+// استقبال تحديث الجودة المتزامنة من المشتركين الآخرين
+socket.on('browser-quality-updated', ({ quality, by }) => {
+  if (browserQualitySelect) {
+    browserQualitySelect.value = quality;
+  }
+  const label = browserQualitySelect ? browserQualitySelect.options[browserQualitySelect.selectedIndex].text : quality;
+  showToast(`⚡ تم تغيير جودة البث إلى: ${label}`);
+});
+
+// تغيير الجودة من القائمة
+function changeBrowserQuality(quality) {
+  socket.emit('change-browser-quality', { roomId: currentRoomId, quality: quality });
+  const label = browserQualitySelect ? browserQualitySelect.options[browserQualitySelect.selectedIndex].text : quality;
+  showToast(`🎬 جاري التبديل إلى: ${label}...`);
+}
 
 // إرسال الرابط المطلوب
 function applyBrowserUrl() {
@@ -137,14 +159,14 @@ function browserReload() {
   showToast('🔄 تم تحديث الصفحة');
 }
 
-// حساب إحداثيات الماوس بدقة على أبعاد المتصفح 1280x720
+// حساب إحداثيات الماوس بدقة متناهية وإعادتها دائماً لنسبة 1280x720 المعيارية
 function getCanvasCoords(e) {
   const rect = browserCanvas.getBoundingClientRect();
-  const scaleX = browserCanvas.width / rect.width;
-  const scaleY = browserCanvas.height / rect.height;
+  const scaleX = 1280 / rect.width;
+  const scaleY = 720 / rect.height;
   return {
-    x: (e.clientX - rect.left) * scaleX,
-    y: (e.clientY - rect.top) * scaleY
+    x: Math.max(0, Math.min(1280, (e.clientX - rect.left) * scaleX)),
+    y: Math.max(0, Math.min(720, (e.clientY - rect.top) * scaleY))
   };
 }
 
@@ -363,6 +385,9 @@ socket.on('sync-state', (state) => {
   }
   if (state.browserUrl) {
     browserUrlInput.value = state.browserUrl;
+  }
+  if (state.browserQuality && browserQualitySelect) {
+    browserQualitySelect.value = state.browserQuality;
   }
 
   const v = state.videoState;

@@ -45,7 +45,8 @@ io.on('connection', (socket) => {
         hostId: socket.id,
         hostOnlyControl: false,
         activeMode: 'browser',
-        browserUrl: 'https://www.google.com',
+        browserUrl: 'https://duckduckgo.com',
+        browserQuality: 'high',
         videoState: {
           sourceType: 'url',
           url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
@@ -80,6 +81,7 @@ io.on('connection', (socket) => {
       hostOnlyControl: room.hostOnlyControl,
       activeMode: room.activeMode,
       browserUrl: room.browserUrl,
+      browserQuality: room.browserQuality || 'high',
       videoState: {
         ...room.videoState,
         currentTime: getEstimatedCurrentTime(room.videoState)
@@ -147,6 +149,20 @@ io.on('connection', (socket) => {
     const room = rooms[roomId];
     if (room && room.hostOnlyControl && socket.id !== room.hostId) return;
     await virtualBrowser.dispatchKey(roomId, event);
+  });
+
+  socket.on('change-browser-quality', async ({ roomId, quality }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+
+    if (room.hostOnlyControl && socket.id !== room.hostId) {
+      socket.emit('action-denied', { reason: 'تغيير جودة المتصفح مقصور على المضيف حالياً.' });
+      return;
+    }
+
+    room.browserQuality = quality;
+    await virtualBrowser.setQuality(roomId, quality);
+    io.to(roomId).emit('browser-quality-updated', { quality, by: socket.username });
   });
 
   // 3. تبديل وضع العرض
