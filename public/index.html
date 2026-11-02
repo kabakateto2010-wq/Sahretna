@@ -84,6 +84,14 @@
             </select>
           </div>
 
+          <!-- التحكم في إضاءة السينما المحيطية بخطوط رأسية (Vertical Ambient Light) -->
+          <div class="ambient-control-box" title="التحكم في شدة إضاءة الخطوط الرأسية الخلفية">
+            <button class="ambient-toggle-btn" id="ambientToggleBtn" onclick="toggleAmbientLight()" title="تشغيل / إيقاف الإضاءة الخلفية">💡</button>
+            <label for="ambientBrightnessSlider" class="ambient-ctrl-label">الإضاءة:</label>
+            <input type="range" id="ambientBrightnessSlider" class="ambient-slider" min="0" max="100" value="70" oninput="setAmbientBrightness(this.value)">
+            <span id="ambientBrightnessValue" class="ambient-val-badge">70%</span>
+          </div>
+
           <button class="nav-ctrl-btn" onclick="startScreenShare()" title="مشاركة الشاشة الحية مع الصوت">🖥️</button>
           <button class="nav-ctrl-btn fav-nav-btn" onclick="addCurrentToFavorites()" title="حفظ الفيلم الحالي في المفضلة">❤️</button>
         </div>
@@ -104,8 +112,35 @@
 
         <!-- مساحة عرض شاشة المتصفح الافتراضي التفاعلي -->
         <div class="browser-viewport-container" id="browserContainer" tabindex="0">
-          <!-- إضاءة السينما المحيطية الفاخرة (Cinema Ambient Glow) -->
-          <div class="ambient-glow" id="ambientGlow"></div>
+          <!-- إضاءة السينما المحيطية بخطوط رأسية ناعمة (Vertical Ambient Lines) -->
+          <div class="ambient-glow" id="ambientGlow">
+            <div class="ambient-lines-grid" id="ambientLinesGrid">
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+            </div>
+          </div>
           <canvas id="browserCanvas" width="1280" height="720"></canvas>
           <div id="browserLoadingOverlay" class="browser-loading">
             <div class="spinner"></div>
@@ -154,6 +189,34 @@
         </div>
 
         <div class="player-container">
+          <div class="ambient-glow">
+            <div class="ambient-lines-grid">
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+            </div>
+          </div>
           <video id="cinemaPlayer" controls playsinline crossorigin="anonymous">
             <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
           </video>

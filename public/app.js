@@ -943,6 +943,81 @@ function updateQuickAccessActive(url) {
   });
 }
 
-// تحديث العداد وشريط الوصول السريع فور تحميل الصفحة
+// ==============================================================
+// التحكم في شدة إضاءة السينما الرأسية (Vertical Ambient Light)
+// ==============================================================
+const AMBIENT_STORAGE_KEY = 'sahra_ambient_brightness';
+let lastActiveAmbientBrightness = 70;
+
+function setAmbientBrightness(val) {
+  const num = Math.max(0, Math.min(100, parseInt(val, 10) || 0));
+  const opacity = num / 100;
+
+  // تطبيق الشدة على متغيرات الـ CSS لجميع عناصر الإضاءة الرأسية
+  document.documentElement.style.setProperty('--ambient-opacity', opacity.toString());
+
+  // تحديث عناصر التحكم
+  const slider = document.getElementById('ambientBrightnessSlider');
+  const badge = document.getElementById('ambientBrightnessValue');
+  const toggleBtn = document.getElementById('ambientToggleBtn');
+
+  if (slider && slider.value != num) slider.value = num;
+  if (badge) badge.innerText = `${num}%`;
+
+  if (toggleBtn) {
+    if (num === 0) {
+      toggleBtn.style.filter = 'grayscale(1) opacity(0.4)';
+      toggleBtn.title = 'تشغيل الإضاءة الخلفية';
+    } else {
+      toggleBtn.style.filter = 'none';
+      toggleBtn.title = 'إيقاف الإضاءة الخلفية';
+      lastActiveAmbientBrightness = num;
+    }
+  }
+
+  // تحديث إطار الكانفاس ليتناغم مع شدة الإضاءة
+  const canvas = document.getElementById('browserCanvas');
+  if (canvas) {
+    if (num === 0) {
+      canvas.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+      canvas.style.boxShadow = '0 16px 50px rgba(0, 0, 0, 0.95)';
+    } else {
+      const redAlpha = (0.35 * opacity).toFixed(2);
+      canvas.style.borderColor = `rgba(229, 9, 20, ${redAlpha})`;
+      canvas.style.boxShadow = `0 16px 50px rgba(0, 0, 0, 0.95), 0 0 ${Math.round(20 * opacity)}px rgba(229, 9, 20, ${redAlpha})`;
+    }
+  }
+
+  // حفظ التفضيل في localStorage
+  try {
+    localStorage.setItem(AMBIENT_STORAGE_KEY, num.toString());
+  } catch (e) {}
+}
+
+function toggleAmbientLight() {
+  const current = parseInt(localStorage.getItem(AMBIENT_STORAGE_KEY) || '70', 10);
+  if (current > 0) {
+    lastActiveAmbientBrightness = current;
+    setAmbientBrightness(0);
+    showToast('🌑 تم إيقاف إضاءة السينما الخلفية');
+  } else {
+    const restore = lastActiveAmbientBrightness > 0 ? lastActiveAmbientBrightness : 70;
+    setAmbientBrightness(restore);
+    showToast(`💡 تم تشغيل إضاءة السينما (${restore}%)`);
+  }
+}
+
+function initAmbientBrightness() {
+  try {
+    const saved = localStorage.getItem(AMBIENT_STORAGE_KEY);
+    const initial = saved !== null ? parseInt(saved, 10) : 70;
+    setAmbientBrightness(initial);
+  } catch (e) {
+    setAmbientBrightness(70);
+  }
+}
+
+// تحديث العداد وشريط الوصول السريع وإضاءة السينما فور تحميل الصفحة
 updateFavoritesBadge();
 renderQuickAccess();
+initAmbientBrightness();
