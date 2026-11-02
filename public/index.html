@@ -88,15 +88,18 @@
           <button class="nav-ctrl-btn fav-nav-btn" onclick="addCurrentToFavorites()" title="حفظ الفيلم الحالي في المفضلة">❤️</button>
         </div>
 
-        <!-- أزرار الاختصارات السريعة -->
-        <div class="shortcuts-bar">
-          <span style="font-size: 11px; color: var(--text-muted);">اختصارات سريعة:</span>
-          <span class="shortcut-pill highlight" onclick="browserNavigateTo('https://www.google.com')">🔍 بحث Google (الافتراضي)</span>
-          <span class="shortcut-pill" onclick="browserNavigateTo('https://egydead.live')">🍿 ايجي ديد (EgyDead)</span>
-          <span class="shortcut-pill" onclick="browserNavigateTo('https://www.youtube.com')">🎬 يوتيوب</span>
-          <span class="shortcut-pill" onclick="browserNavigateTo('https://www.dailymotion.com')">🍿 ديلي موشن</span>
-          <span class="shortcut-pill" onclick="browserNavigateTo('https://archive.org/details/movies')">🎥 أرشيف الأفلام</span>
-          <span class="shortcut-pill" onclick="browserNavigateTo('https://wikipedia.org')">📖 ويكيبيديا</span>
+        <!-- شريط الوصول السريع للمواقع المحفوظة (Quick Access Bookmarks) -->
+        <div class="quick-access-bar" id="quickAccessBar">
+          <div class="quick-access-label">
+            <span class="quick-icon">📌</span>
+            <span>وصول سريع:</span>
+          </div>
+          <div class="quick-access-list" id="quickAccessList">
+            <!-- يتم تعبئة المواقع المحفوظة تلقائياً من الذاكرة -->
+          </div>
+          <button class="quick-add-btn" onclick="addCurrentToQuickAccess()" title="حفظ الموقع الحالي في شريط الوصول السريع">
+            <span>➕</span> حفظ الموقع الحالي
+          </button>
         </div>
 
         <!-- مساحة عرض شاشة المتصفح الافتراضي التفاعلي -->

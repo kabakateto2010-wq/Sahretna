@@ -294,47 +294,145 @@ body {
   color: #fff;
 }
 
-.shortcut-pill.highlight {
-  background: rgba(229, 9, 20, 0.18);
-  border-color: rgba(229, 9, 20, 0.5);
-  color: #ff5e67;
-  font-weight: 800;
-}
-
-.shortcuts-bar {
-  background: rgba(11, 11, 16, 0.95);
-  border-bottom: 1px solid var(--border-subtle);
+/* ================== شريط الوصول السريع للمواقع المحفوظة (Quick Access) ================== */
+.quick-access-bar {
+  background: rgba(10, 10, 15, 0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(229, 9, 20, 0.2);
   padding: 6px 16px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   overflow-x: auto;
+  scrollbar-width: none;
+  z-index: 9;
 }
 
-.shortcut-pill {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-secondary);
+.quick-access-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.quick-access-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.quick-icon {
+  font-size: 12px;
+}
+
+.quick-access-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.quick-access-list::-webkit-scrollbar {
+  display: none;
+}
+
+.quick-empty-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.quick-pill {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #d1d5db;
   padding: 4px 12px;
-  border-radius: 14px;
+  border-radius: 16px;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
 }
 
-.shortcut-pill:hover {
-  background: rgba(255, 255, 255, 0.12);
+.quick-pill:hover {
+  background: rgba(229, 9, 20, 0.16);
+  border-color: rgba(229, 9, 20, 0.45);
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.2);
+}
+
+.quick-pill.active {
+  background: rgba(229, 9, 20, 0.28);
+  border-color: var(--netflix-red);
+  color: #ff6b75;
+  box-shadow: 0 0 12px rgba(229, 9, 20, 0.4);
+}
+
+.quick-pill-title {
+  display: inline-block;
+}
+
+.quick-del-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.quick-del-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  transform: scale(1.15);
+}
+
+.quick-add-btn {
+  background: rgba(229, 9, 20, 0.14);
+  border: 1px dashed rgba(229, 9, 20, 0.5);
+  color: #ff6b75;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.22s ease;
+}
+
+.quick-add-btn:hover {
+  background: var(--netflix-red);
+  border-style: solid;
+  border-color: var(--netflix-red);
+  color: #fff;
+  box-shadow: 0 0 14px rgba(229, 9, 20, 0.5);
   transform: translateY(-1px);
 }
 
+/* ================== مساحة عرض المتصفح وإضاءة السينما المحيطية (Cinema Ambilight) ================== */
 .browser-viewport-container {
   flex: 1;
   position: relative;
-  background: #040406;
+  background: radial-gradient(ellipse 90% 85% at 50% 50%, rgba(229, 9, 20, 0.22) 0%, rgba(130, 5, 12, 0.10) 45%, #060609 75%, #020204 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -342,31 +440,45 @@ body {
   outline: none;
 }
 
-/* هالة الإضاءة السينمائية المحيطية (Ambilight Cinema Glow) */
+/* هالة الإضاءة السينمائية الحمراء الخفيفة والمحيطية في الخلفية السودة */
 .ambient-glow {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 90%;
-  height: 84%;
-  border-radius: 40px;
-  background: radial-gradient(circle, rgba(229, 9, 20, 0.24) 0%, rgba(59, 130, 246, 0.14) 40%, rgba(147, 51, 234, 0.1) 70%, transparent 90%);
-  filter: blur(70px);
+  width: 98%;
+  height: 96%;
+  max-width: 1400px;
+  border-radius: 60px;
+  background: radial-gradient(ellipse at center, rgba(229, 9, 20, 0.48) 0%, rgba(229, 9, 20, 0.32) 40%, rgba(180, 0, 10, 0.16) 65%, transparent 85%);
+  filter: blur(85px);
   pointer-events: none;
   z-index: 1;
-  opacity: 0.85;
-  animation: ambientPulse 7s ease-in-out infinite alternate;
+  opacity: 0.95;
+  animation: ambientPulse 6s ease-in-out infinite alternate;
 }
 
 @keyframes ambientPulse {
-  0% { opacity: 0.65; transform: translate(-50%, -50%) scale(0.97); }
-  100% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.02); }
+  0% {
+    opacity: 0.75;
+    transform: translate(-50%, -50%) scale(1.02);
+    filter: blur(75px);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.14);
+    filter: blur(95px);
+  }
+  100% {
+    opacity: 0.82;
+    transform: translate(-50%, -50%) scale(1.06);
+    filter: blur(80px);
+  }
 }
 
 #browserCanvas {
-  max-width: 100%;
-  max-height: 100%;
+  max-width: 96%;
+  max-height: 94%;
   width: auto;
   height: auto;
   aspect-ratio: 16 / 9;
@@ -374,8 +486,23 @@ body {
   cursor: default;
   display: block;
   z-index: 2;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7);
-  border-radius: 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(229, 9, 20, 0.28);
+  box-shadow: 
+    0 0 45px rgba(229, 9, 20, 0.38),
+    0 0 100px rgba(229, 9, 20, 0.22),
+    0 0 160px rgba(229, 9, 20, 0.12),
+    0 24px 60px rgba(0, 0, 0, 0.95);
+  transition: box-shadow 0.4s ease, border-color 0.4s ease;
+}
+
+:fullscreen #browserCanvas,
+:-webkit-full-screen #browserCanvas {
+  max-width: 100%;
+  max-height: 100%;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* وضع السكون الذكي لإخفاء شريط التحكم والماوس تلقائياً أثناء المشاهدة */
@@ -458,14 +585,20 @@ body {
   align-items: center;
   justify-content: center;
   position: relative;
-  background: #000;
+  background: radial-gradient(ellipse 90% 85% at 50% 50%, rgba(229, 9, 20, 0.22) 0%, rgba(130, 5, 12, 0.10) 45%, #060609 75%, #020204 100%);
 }
 
 #cinemaPlayer {
-  width: 100%;
-  height: 100%;
-  max-height: 100%;
+  max-width: 96%;
+  max-height: 94%;
+  width: auto;
+  height: auto;
   object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 
+    0 0 45px rgba(229, 9, 20, 0.35),
+    0 0 100px rgba(229, 9, 20, 0.20),
+    0 24px 60px rgba(0, 0, 0, 0.95);
 }
 
 /* Floating Reactions */
@@ -966,12 +1099,19 @@ body {
     font-size: 11px;
   }
 
-  .shortcuts-bar {
-    padding: 4px 8px;
+  .quick-access-bar {
+    padding: 4px 10px;
+    gap: 6px;
   }
 
-  .shortcut-pill {
-    padding: 2px 8px;
+  .quick-pill {
+    padding: 3px 8px;
+    font-size: 10px;
+    gap: 5px;
+  }
+
+  .quick-add-btn {
+    padding: 3px 8px;
     font-size: 10px;
   }
 

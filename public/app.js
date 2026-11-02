@@ -123,6 +123,7 @@ socket.on('sync-browser-url', ({ url }) => {
   if (document.activeElement !== browserUrlInput) {
     browserUrlInput.value = url;
   }
+  updateQuickAccessActive(url);
 });
 
 // استقبال تحديث الجودة المتزامنة من المشتركين الآخرين
@@ -153,6 +154,7 @@ function browserNavigateTo(url) {
   browserUrlInput.value = url;
   browserLoadingOverlay.classList.remove('hidden');
   socket.emit('browser-navigate', { roomId: currentRoomId, url: url });
+  updateQuickAccessActive(url);
 }
 
 function browserGoBack() {
@@ -824,5 +826,123 @@ function removeFavoriteMovie(id) {
   showToast(`🗑️ تم حذف "${removed ? removed.title : 'الفيلم'}" من المفضلة`);
 }
 
-// تحديث العداد فور تحميل الصفحة
+// ==============================================================
+// شريط الوصول السريع للمواقع المحفوظة (Quick Access Bookmarks)
+// ==============================================================
+const QA_STORAGE_KEY = 'sahra_quick_access_sites';
+const DEFAULT_QUICK_ACCESS = [
+  { id: 'qa-google', title: '🔍 بحث Google', url: 'https://www.google.com' },
+  { id: 'qa-egydead', title: '🍿 ايجي ديد (EgyDead)', url: 'https://egydead.live' },
+  { id: 'qa-youtube', title: '🎬 يوتيوب', url: 'https://www.youtube.com' }
+];
+
+function getQuickAccess() {
+  try {
+    const raw = localStorage.getItem(QA_STORAGE_KEY);
+    if (!raw) {
+      localStorage.setItem(QA_STORAGE_KEY, JSON.stringify(DEFAULT_QUICK_ACCESS));
+      return DEFAULT_QUICK_ACCESS;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_QUICK_ACCESS;
+  } catch (e) {
+    return DEFAULT_QUICK_ACCESS;
+  }
+}
+
+function saveQuickAccess(list) {
+  try {
+    localStorage.setItem(QA_STORAGE_KEY, JSON.stringify(list));
+  } catch (e) {}
+  renderQuickAccess();
+}
+
+function renderQuickAccess() {
+  const container = document.getElementById('quickAccessList');
+  if (!container) return;
+  const list = getQuickAccess();
+  const currentUrl = (browserUrlInput ? browserUrlInput.value : '').trim().toLowerCase();
+
+  if (list.length === 0) {
+    container.innerHTML = '<span class="quick-empty-hint">لا توجد مواقع محفوظة بعد. اضغط "➕ حفظ الموقع الحالي".</span>';
+    return;
+  }
+
+  container.innerHTML = list.map(item => {
+    const itemUrlLower = (item.url || '').toLowerCase();
+    const isActive = currentUrl && (currentUrl === itemUrlLower || currentUrl.startsWith(itemUrlLower));
+    return `
+      <div class="quick-pill ${isActive ? 'active' : ''}" onclick="browserNavigateTo('${escapeHtml(item.url)}')" title="${escapeHtml(item.url)}">
+        <span class="quick-pill-title">${escapeHtml(item.title)}</span>
+        <button class="quick-del-btn" onclick="event.stopPropagation(); removeQuickAccess('${item.id}')" title="إزالة من الوصول السريع">✕</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function addCurrentToQuickAccess() {
+  const currentUrl = (browserUrlInput ? browserUrlInput.value : '').trim();
+  if (!currentUrl) {
+    showToast('⚠️ لا يوجد رابط حالي لحفظه.');
+    return;
+  }
+
+  // اقتراح اسم ذكي للموقع من الرابط
+  let suggestedName = '';
+  try {
+    const u = new URL(currentUrl);
+    suggestedName = u.hostname.replace('www.', '');
+  } catch (e) {
+    suggestedName = currentUrl;
+  }
+
+  const name = prompt('أدخل اسماً أو عنواناً لهذا الموقع في شريط الوصول السريع:', suggestedName);
+  if (name === null) return; // تم الإلغاء من قبل المستخدم
+
+  const finalName = name.trim() || suggestedName;
+  const list = getQuickAccess();
+
+  // التحقق إن كان الموقع موجوداً بالفعل لتحديث اسمه
+  const existing = list.find(item => item.url.toLowerCase() === currentUrl.toLowerCase());
+  if (existing) {
+    existing.title = finalName;
+    saveQuickAccess(list);
+    showToast(`🔄 تم تحديث اسم الموقع في شريط الوصول السريع إلى "${finalName}"`);
+    return;
+  }
+
+  list.push({
+    id: 'qa-' + Date.now(),
+    title: finalName,
+    url: currentUrl
+  });
+
+  saveQuickAccess(list);
+  showToast(`⭐ تم حفظ "${finalName}" في شريط الوصول السريع بنجاح!`);
+}
+
+function removeQuickAccess(id) {
+  let list = getQuickAccess();
+  const removed = list.find(item => item.id === id);
+  list = list.filter(item => item.id !== id);
+  saveQuickAccess(list);
+  showToast(`🗑️ تم إزالة "${removed ? removed.title : 'الموقع'}" من الوصول السريع`);
+}
+
+function updateQuickAccessActive(url) {
+  const container = document.getElementById('quickAccessList');
+  if (!container) return;
+  const targetUrl = (url || '').toLowerCase();
+  container.querySelectorAll('.quick-pill').forEach(pill => {
+    const pillUrl = (pill.getAttribute('title') || '').toLowerCase();
+    if (pillUrl && (targetUrl === pillUrl || targetUrl.startsWith(pillUrl) || pillUrl.startsWith(targetUrl))) {
+      pill.classList.add('active');
+    } else {
+      pill.classList.remove('active');
+    }
+  });
+}
+
+// تحديث العداد وشريط الوصول السريع فور تحميل الصفحة
 updateFavoritesBadge();
+renderQuickAccess();
