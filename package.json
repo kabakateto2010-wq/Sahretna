@@ -1,18 +1,19 @@
 {
   "name": "hyperbeam-cinema-sync",
   "version": "1.0.0",
-  "description": "منصة المشاهدة المشتركة وتزامن السينما الافتراضية بنمط نتفليكس",
-  "main": "server.js",
+  "description": "منصة المشاهدة المشتركة والمتصفح السينمائي الافتراضي المفتوح",
+  "main": "main.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "desktop": "electron main.js"
   },
   "keywords": [
     "watch-party",
     "co-watch",
     "socket.io",
     "hyperbeam-alternative",
-    "netflix-style",
-    "video-sync"
+    "virtual-browser",
+    "electron"
   ],
   "author": "Ahmed Gamal",
   "license": "MIT",
@@ -20,5 +21,8 @@
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "electron": "^41.7.1"
   }
 }

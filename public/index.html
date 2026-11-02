@@ -3,44 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🍿 سهرة بلس | قاعة السينما الافتراضية والتزامن اللحظي</title>
+  <title>🍿 سهرة بلس | متصفح السينما المفتوح (Hyperbeam Virtual Browser)</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- شريط الملاحة العلوي بنمط نتفليكس -->
+  <!-- شريط الملاحة العلوي -->
   <header class="navbar">
     <div class="brand">
       <div class="brand-logo">🍿 سهرة بلس</div>
-      <div class="brand-badge">CINEMA SYNC</div>
+      <div class="brand-badge">HYPERBEAM MODE</div>
     </div>
 
-    <!-- أزرار اختيار مصادر الوسائط -->
-    <div class="header-center">
-      <button class="source-btn active" onclick="document.getElementById('videoUrlInput').focus()">
-        🔗 رابط مباشر / سحابي
+    <!-- أزرار التبديل بين وضع المتصفح المفتوح ومشغل الفيديو -->
+    <div class="mode-switcher">
+      <button class="mode-btn active" id="btnModeBrowser" onclick="switchMainMode('browser')">
+        🌐 المتصفح المفتوح (أي موقع)
       </button>
-
-      <button class="source-btn" onclick="document.getElementById('localFileInput').click()">
-        📁 ملف من الجهاز
+      <button class="mode-btn" id="btnModePlayer" onclick="switchMainMode('player')">
+        🎬 مشغل الفيديو المباشر
       </button>
-      <input type="file" id="localFileInput" accept="video/*" style="display: none;" onchange="handleLocalFile(event)">
-
-      <button class="source-btn" onclick="startScreenShare()">
-        🖥️ مشاركة الشاشة
-      </button>
-
-      <button class="source-btn" onclick="document.getElementById('subtitleFileInput').click()">
-        💬 ملف ترجمة (SRT)
-      </button>
-      <input type="file" id="subtitleFileInput" accept=".srt,.vtt" style="display: none;" onchange="handleSubtitleFile(event)">
     </div>
 
     <!-- معلومات القاعة والتحكم -->
     <div class="header-actions">
-      <div class="room-badge" id="roomCodeBadge" onclick="copyInviteLink()" title="انقر لنسخ الرابط وإرساله للأصدقاء">
+      <div class="room-badge" id="roomCodeBadge" onclick="copyInviteLink()" title="انقر لنسخ رابط السهرة">
         <span>🍿</span>
-        <span>قاعة: جاري التحميل...</span>
+        <span>قاعة: ...</span>
       </div>
 
       <button class="control-toggle" id="hostControlBtn" onclick="toggleHostLock()">
@@ -49,50 +38,76 @@
     </div>
   </header>
 
-  <!-- التخطيط الرئيسي: منطقة العرض + القائمة الجانبية -->
+  <!-- التخطيط الرئيسي -->
   <main class="cinema-layout">
 
-    <!-- مسرح الفيديو الرئيسي -->
-    <section class="video-stage">
-      <!-- شريط إدخال الروابط السحابية والمباشرة -->
-      <div class="source-toolbar" id="urlBarContainer">
-        <span style="font-weight: 700; color: var(--text-secondary);">رابط العرض:</span>
-        <input type="text" id="videoUrlInput" placeholder="أدخل رابط فيديو مباشر (MP4, WebM, HLS, أو رابط سحابي)..." value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">
-        <button class="btn-primary" onclick="applyVideoUrl()">عرض وتزامن 🎬</button>
-        <button class="btn-secondary" onclick="videoUrlInput.value='https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'; applyVideoUrl();">فيلم تجريبي 2 🐘</button>
+    <section class="main-stage">
+
+      <!-- 1. واجهة المتصفح المفتوح (Hyperbeam Browser Mode) -->
+      <div class="browser-view" id="browserView">
+        <!-- شريط أدوات التصفح -->
+        <div class="browser-nav-bar">
+          <button class="nav-ctrl-btn" onclick="browserGoBack()" title="للخلف">◀</button>
+          <button class="nav-ctrl-btn" onclick="browserGoForward()" title="للأمام">▶</button>
+          <button class="nav-ctrl-btn" onclick="browserReload()" title="تحديث">🔄</button>
+          <button class="nav-ctrl-btn" onclick="browserNavigateTo('https://www.google.com')" title="الصفحة الرئيسية">🏠</button>
+
+          <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="اكتب أي رابط أو ابحث في جوجل (مثال: https://www.google.com أو موقع أفلام)..." value="https://www.google.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
+
+          <button class="btn-primary" onclick="applyBrowserUrl()">تصفح 🚀</button>
+          <button class="nav-ctrl-btn" onclick="startScreenShare()" title="مشاركة الشاشة الحية مع الصوت">🖥️</button>
+        </div>
+
+        <!-- أزرار الاختصارات السريعة -->
+        <div class="shortcuts-bar">
+          <span style="font-size: 11px; color: var(--text-muted);">اختصارات:</span>
+          <span class="shortcut-pill" onclick="browserNavigateTo('https://www.google.com')">🔍 بحث جوجل</span>
+          <span class="shortcut-pill" onclick="browserNavigateTo('https://www.youtube.com')">🎬 يوتيوب</span>
+          <span class="shortcut-pill" onclick="browserNavigateTo('https://www.dailymotion.com')">🍿 ديلي موشن</span>
+          <span class="shortcut-pill" onclick="browserNavigateTo('https://archive.org/details/movies')">🎥 أرشيف الأفلام المجانية</span>
+          <span class="shortcut-pill" onclick="browserNavigateTo('https://wikipedia.org')">📖 ويكيبيديا</span>
+        </div>
+
+        <!-- منطقة عرض صفحات الويب التفاعلية -->
+        <div class="browser-viewport-container" id="browserContainer">
+          <!-- سيتم إدراج <webview> إذا كنا في Electron أو <iframe> مع البروكسي إذا كنا في المتصفح -->
+          <iframe id="browserFrame" src="/api/proxy?url=https://www.google.com" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads allow-modals"></iframe>
+        </div>
       </div>
 
-      <!-- مشغل الفيديو السينمائي -->
-      <div class="player-wrapper">
-        <video id="cinemaPlayer" controls playsinline crossorigin="anonymous">
-          <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
-          متصفحك لا يدعم مشغل الفيديو.
-        </video>
+      <!-- 2. واجهة مشغل الفيديو المباشر (Direct Player Mode) -->
+      <div class="player-view" id="playerView">
+        <div class="player-toolbar">
+          <input type="text" id="videoUrlInput" placeholder="أدخل رابط ملف فيديو مباشر (MP4 / WebM / M3U8)..." value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">
+          <button class="btn-primary" onclick="applyVideoUrl()">تشغيل وتزامن 🎬</button>
+          <button class="btn-secondary" onclick="document.getElementById('localFileInput').click()">📁 ملف محلي</button>
+          <input type="file" id="localFileInput" accept="video/*" style="display:none;" onchange="handleLocalFile(event)">
+          <button class="btn-secondary" onclick="document.getElementById('subtitleFileInput').click()">💬 ترجمة SRT</button>
+          <input type="file" id="subtitleFileInput" accept=".srt,.vtt" style="display:none;" onchange="handleSubtitleFile(event)">
+        </div>
 
-        <!-- طبقة التفاعلات التعبيرية الطافية -->
-        <div class="floating-reactions-box" id="reactionsBox"></div>
-
-        <!-- إشعار التزامن السريع Toast -->
-        <div class="sync-toast" id="syncToast"></div>
+        <div class="player-container">
+          <video id="cinemaPlayer" controls playsinline crossorigin="anonymous">
+            <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+          </video>
+        </div>
       </div>
+
+      <!-- طبقة التفاعلات الطافية والإشعارات -->
+      <div class="floating-reactions-box" id="reactionsBox"></div>
+      <div class="sync-toast" id="syncToast"></div>
     </section>
 
-    <!-- القائمة الجانبية: الشات والحضور -->
+    <!-- القائمة الجانبية: الدردشة والحضور -->
     <aside class="cinema-sidebar">
       <div class="sidebar-tabs">
-        <button class="tab-btn active" id="tabBtnChat" onclick="switchSidebarTab('chat')">
-          💬 الدردشة الحية
-        </button>
-        <button class="tab-btn" id="tabBtnUsers" onclick="switchSidebarTab('users')">
-          👥 الحضور (<span id="usersCountBadge">1</span>)
-        </button>
+        <button class="tab-btn active" id="tabBtnChat" onclick="switchSidebarTab('chat')">💬 الدردشة الحية</button>
+        <button class="tab-btn" id="tabBtnUsers" onclick="switchSidebarTab('users')">👥 الحضور (<span id="usersCountBadge">1</span>)</button>
       </div>
 
-      <!-- محتوى تبويب الدردشة -->
       <div class="tab-content active" id="tabContentChat">
         <div class="chat-messages" id="chatMessages"></div>
 
-        <!-- شريط التفاعلات السريعة (One-Click Floating Reactions) -->
         <div class="reactions-bar">
           <button class="reaction-btn" onclick="sendReaction('🍿')" title="فشار">🍿</button>
           <button class="reaction-btn" onclick="sendReaction('😂')" title="ضحك">😂</button>
@@ -102,14 +117,12 @@
           <button class="reaction-btn" onclick="sendReaction('👏')" title="تصفيق">👏</button>
         </div>
 
-        <!-- حقل إرسال رسالة -->
         <div class="chat-input-bar">
           <input type="text" id="chatInput" placeholder="اكتب رسالة للسهرة..." onkeypress="if(event.key==='Enter') sendChatMessage()">
           <button class="btn-primary" onclick="sendChatMessage()">إرسال</button>
         </div>
       </div>
 
-      <!-- محتوى تبويب الحضور -->
       <div class="tab-content" id="tabContentUsers">
         <div class="users-list" id="usersList"></div>
       </div>
@@ -117,33 +130,31 @@
 
   </main>
 
-  <!-- نافذة الترحيب والدخول لقاعة السينما -->
+  <!-- نافذة الترحيب -->
   <div class="modal-overlay" id="welcomeModal">
     <div class="modal-box">
       <div class="modal-logo">🍿</div>
-      <h2 class="modal-title">أهلاً بك في قاعة سهرة بلس</h2>
-      <p class="modal-desc">منصة المشاهدة الجماعية المتزامنة مع أصحابك من أي مكان وأي جهاز بجودة سينمائية كاملة وبدون قيود.</p>
+      <h2 style="font-size:20px; font-weight:800;">سهرة بلس | متصفح السينما المفتوح</h2>
+      <p style="font-size:13px; color:var(--text-secondary); line-height:1.5;">ادخل أي موقع في العالم بحرية وتصفحه مع أصدقائك بالتزامن اللحظي تماماً مثل Hyperbeam.</p>
 
-      <div class="modal-form">
-        <div class="input-group">
-          <label>اسمك في السهرة:</label>
-          <input type="text" id="usernameInput" class="modal-input" placeholder="مثال: أحمد، عمر، سارة..." autofocus>
+      <div style="display:flex; flex-direction:column; gap:12px; text-align:right;">
+        <div>
+          <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">اسمك في السهرة:</label>
+          <input type="text" id="usernameInput" class="modal-input" placeholder="اسمك المستعار..." autofocus>
         </div>
-
-        <div class="input-group">
-          <label>رمز القاعة (اختياري للانضمام لقاعة موجودة):</label>
+        <div>
+          <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">رمز القاعة:</label>
           <input type="text" id="customRoomInput" class="modal-input" placeholder="مثال: sahra-2026">
         </div>
       </div>
 
-      <div class="modal-actions">
-        <button class="btn-primary" onclick="enterCinema(false)">دخول القاعة 🍿</button>
-        <button class="btn-secondary" onclick="enterCinema(true)">إنشاء قاعة جديدة 🎲</button>
+      <div style="display:flex; gap:10px;">
+        <button class="btn-primary" style="flex:1; padding:12px;" onclick="enterCinema(false)">دخول القاعة 🍿</button>
+        <button class="btn-primary" style="flex:1; padding:12px; background:var(--bg-hover); border:1px solid var(--border-subtle);" onclick="enterCinema(true)">إنشاء قاعة جديدة 🎲</button>
       </div>
     </div>
   </div>
 
-  <!-- مكتبة Socket.io وسكريبت التطبيق -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>
 </body>

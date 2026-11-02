@@ -1,49 +1,86 @@
-// ==========================================
-// 🍿 Hyperbeam Cinema Sync - Client App
-// ==========================================
+// ==============================================================
+// 🍿 Hyperbeam Cinema - Client App (Virtual Browser + Sync)
+// ==============================================================
 
 const socket = io();
-const player = document.getElementById('cinemaPlayer');
 
-// حالة التطبيق المحلية
+// التحقق مما إذا كان التطبيق يعمل داخل Electron
+const isElectron = typeof navigator === 'object' && typeof navigator.userAgent === 'string' && navigator.userAgent.indexOf('Electron') >= 0;
+
 let currentRoomId = '';
 let currentUsername = '';
 let isHost = false;
 let hostOnlyControl = false;
-let isSyncing = false; // راية لمنع التكرار اللانهائي للأوامر
-let activeStream = null; // لمشاركة الشاشة
+let isSyncing = false;
+let currentActiveMode = 'browser'; // 'browser' أو 'player'
 
-// عناصر الواجهة
-const urlBarContainer = document.getElementById('urlBarContainer');
-const videoUrlInput = document.getElementById('videoUrlInput');
-const localFileInput = document.getElementById('localFileInput');
-const subtitleFileInput = document.getElementById('subtitleFileInput');
+// عناصر واجهة المستخدم
+const welcomeModal = document.getElementById('welcomeModal');
+const usernameInput = document.getElementById('usernameInput');
+const customRoomInput = document.getElementById('customRoomInput');
 const roomCodeBadge = document.getElementById('roomCodeBadge');
 const hostControlBtn = document.getElementById('hostControlBtn');
 const syncToast = document.getElementById('syncToast');
+
+const browserView = document.getElementById('browserView');
+const playerView = document.getElementById('playerView');
+const btnModeBrowser = document.getElementById('btnModeBrowser');
+const btnModePlayer = document.getElementById('btnModePlayer');
+
+const browserUrlInput = document.getElementById('browserUrlInput');
+const browserContainer = document.getElementById('browserContainer');
+let browserFrame = document.getElementById('browserFrame');
+
+const cinemaPlayer = document.getElementById('cinemaPlayer');
+const videoUrlInput = document.getElementById('videoUrlInput');
+const localFileInput = document.getElementById('localFileInput');
+const subtitleFileInput = document.getElementById('subtitleFileInput');
+
 const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
 const usersList = document.getElementById('usersList');
 const usersCountBadge = document.getElementById('usersCountBadge');
 const reactionsBox = document.getElementById('reactionsBox');
-const welcomeModal = document.getElementById('welcomeModal');
-const usernameInput = document.getElementById('usernameInput');
-const customRoomInput = document.getElementById('customRoomInput');
 
-// 1. استخراج الغرفة من الرابط URL
+// إذا كنا في إلكترون نقوم بتجهيز عنصر <webview> الأصلي المفتوح بدون قيود
+let webviewEl = null;
+if (isElectron) {
+  browserContainer.innerHTML = '';
+  webviewEl = document.createElement('webview');
+  webviewEl.id = 'browserWebview';
+  webviewEl.setAttribute('allowpopups', 'true');
+  webviewEl.setAttribute('webpreferences', 'allowRunningInsecureContent, javascript=yes');
+  webviewEl.style.width = '100%';
+  webviewEl.style.height = '100%';
+  webviewEl.style.border = 'none';
+  webviewEl.src = 'https://www.google.com';
+  browserContainer.appendChild(webviewEl);
+
+  webviewEl.addEventListener('did-navigate', (e) => {
+    browserUrlInput.value = e.url;
+    if (isHost && !isSyncing) {
+      socket.emit('browser-navigate', { roomId: currentRoomId, url: e.url });
+    }
+  });
+
+  webviewEl.addEventListener('did-navigate-in-page', (e) => {
+    browserUrlInput.value = e.url;
+    if (isHost && !isSyncing) {
+      socket.emit('browser-navigate', { roomId: currentRoomId, url: e.url });
+    }
+  });
+}
+
+// 1. الدخول للقاعة
 const urlParams = new URLSearchParams(window.location.search);
 const initialRoomFromUrl = urlParams.get('room');
-
 if (initialRoomFromUrl) {
   customRoomInput.value = initialRoomFromUrl;
 }
 
-// دالة الدخول للقاعة
 function enterCinema(isNewRoom = false) {
   let name = usernameInput.value.trim();
-  if (!name) {
-    name = 'صديق_' + Math.floor(Math.random() * 900 + 100);
-  }
+  if (!name) name = 'صديق_' + Math.floor(Math.random() * 900 + 100);
 
   let room = customRoomInput.value.trim();
   if (isNewRoom || !room) {
@@ -53,17 +90,12 @@ function enterCinema(isNewRoom = false) {
   currentUsername = name;
   currentRoomId = room;
 
-  // تحديث الرابط في المتصفح دون إعادة تحميل الصفحة
   const newUrl = `${window.location.pathname}?room=${currentRoomId}`;
   window.history.pushState({ path: newUrl }, '', newUrl);
 
-  // إخفاء نافذة الترحيب
   welcomeModal.style.display = 'none';
-
-  // تحديث الشارة
   roomCodeBadge.innerHTML = `<span>🍿</span><span>قاعة: ${currentRoomId}</span><small style="opacity:0.7">(نسخ الرابط)</small>`;
 
-  // إرسال طلب الانضمام للسيرفر
   socket.emit('join-room', {
     roomId: currentRoomId,
     username: currentUsername,
@@ -71,293 +103,181 @@ function enterCinema(isNewRoom = false) {
   });
 }
 
-// نسخ رابط الدعوة
 function copyInviteLink() {
-  const inviteUrl = window.location.href;
-  navigator.clipboard.writeText(inviteUrl).then(() => {
-    showToast('📋 تم نسخ رابط دعوة السهرة بنجاح!');
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    showToast('📋 تم نسخ رابط السهرة!');
   });
 }
 
-// إظهار إشعار Toast سريع
 function showToast(text, duration = 3000) {
   syncToast.innerHTML = text;
   syncToast.classList.add('show');
-  setTimeout(() => {
-    syncToast.classList.remove('show');
-  }, duration);
+  setTimeout(() => { syncToast.classList.remove('show'); }, duration);
 }
 
-// ==========================================
-// 2. أحداث المشغل ومزامنتها لحظياً
-// ==========================================
+// ==============================================================
+// 2. التحكم في المتصفح المفتوح (Virtual Browser Navigation)
+// ==============================================================
 
-player.addEventListener('play', () => {
-  if (isSyncing) return;
-  socket.emit('video-action', {
-    roomId: currentRoomId,
-    action: 'play',
-    time: player.currentTime
-  });
-});
+function applyBrowserUrl() {
+  let url = browserUrlInput.value.trim();
+  if (!url) return;
 
-player.addEventListener('pause', () => {
-  if (isSyncing) return;
-  socket.emit('video-action', {
-    roomId: currentRoomId,
-    action: 'pause',
-    time: player.currentTime
-  });
-});
-
-player.addEventListener('seeked', () => {
-  if (isSyncing) return;
-  socket.emit('video-action', {
-    roomId: currentRoomId,
-    action: 'seek',
-    time: player.currentTime
-  });
-});
-
-player.addEventListener('ratechange', () => {
-  if (isSyncing) return;
-  socket.emit('video-action', {
-    roomId: currentRoomId,
-    action: 'rate',
-    rate: player.playbackRate,
-    time: player.currentTime
-  });
-});
-
-// ==========================================
-// 3. استقبال أحداث السيرفر (Socket Listeners)
-// ==========================================
-
-// مزامنة الحالة الكاملة عند أول دخول
-socket.on('sync-state', (state) => {
-  isHost = state.isHost;
-  hostOnlyControl = state.hostOnlyControl;
-  updateHostControlsUI();
-
-  const v = state.videoState;
-  if (v.url && player.src !== v.url && v.sourceType === 'url') {
-    isSyncing = true;
-    player.src = v.url;
-    videoUrlInput.value = v.url;
+  // إذا لم يكتب المستخدم بروتوكول http/https، نتحقق إذا كان دومين أو بحث جوجل
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    if (url.includes('.') && !url.includes(' ')) {
+      url = 'https://' + url;
+    } else {
+      url = 'https://www.google.com/search?q=' + encodeURIComponent(url);
+    }
   }
 
-  // مزامنة الوقت إذا كان هناك فارق
-  if (Math.abs(player.currentTime - v.currentTime) > 0.5) {
-    player.currentTime = v.currentTime;
-  }
+  browserUrlInput.value = url;
+  browserNavigateTo(url);
 
-  if (v.isPlaying) {
-    player.play().catch(() => {
-      showToast('⚠️ انقر في أي مكان بالشاشة لتفعيل الصوت والتزامن');
-    });
-  }
+  // إرسال الرابط لكل الأصدقاء في القاعة لمزامنته
+  socket.emit('browser-navigate', {
+    roomId: currentRoomId,
+    url: url
+  });
+}
 
-  setTimeout(() => { isSyncing = false; }, 500);
-
-  // تحميل الشات المسبق
-  chatMessages.innerHTML = '';
-  if (state.chatHistory) {
-    state.chatHistory.forEach(appendMessage);
-  }
-});
-
-// استقبال أوامر الفيديو اللحظية من باقي الأصدقاء
-socket.on('sync-action', (data) => {
+function browserNavigateTo(url) {
+  browserUrlInput.value = url;
   isSyncing = true;
-  const { action, time, url, sourceType, fileName, rate, by } = data;
 
-  if (url && sourceType === 'url' && player.src !== url) {
-    player.src = url;
-    videoUrlInput.value = url;
-    showToast(`🎬 ${by} قام بتغيير الفيلم`);
+  if (isElectron && webviewEl) {
+    webviewEl.loadURL(url);
+  } else {
+    // في المتصفح العادي نستخدم البروكسي الذكي لفك حظر التضمين
+    browserFrame.src = `/api/proxy?url=${encodeURIComponent(url)}`;
   }
 
-  if (sourceType === 'local' && fileName) {
-    showToast(`📁 ${by} يشغل ملفاً محلياً: [${fileName}]. اختر نفس الملف من جهازك!`, 5000);
+  setTimeout(() => { isSyncing = false; }, 600);
+}
+
+function browserGoBack() {
+  if (isElectron && webviewEl) {
+    if (webviewEl.canGoBack()) webviewEl.goBack();
+  } else {
+    try { browserFrame.contentWindow.history.back(); } catch (e) {}
   }
+}
 
-  // تصحيح التوقيت إذا كان الفارق أكثر من نصف ثانية
-  if (time !== undefined && Math.abs(player.currentTime - time) > 0.45) {
-    player.currentTime = time;
+function browserGoForward() {
+  if (isElectron && webviewEl) {
+    if (webviewEl.canGoForward()) webviewEl.goForward();
+  } else {
+    try { browserFrame.contentWindow.history.forward(); } catch (e) {}
   }
+}
 
-  if (rate) {
-    player.playbackRate = rate;
+function browserReload() {
+  if (isElectron && webviewEl) {
+    webviewEl.reload();
+  } else {
+    browserFrame.src = browserFrame.src;
   }
+  showToast('🔄 تم تحديث الصفحة');
+}
 
-  if (action === 'play') {
-    player.play().catch(() => {});
-    showToast(`▶️ ${by} استأنف العرض`);
-  } else if (action === 'pause') {
-    player.pause();
-    showToast(`⏸️ ${by} أوقف العرض مؤقتاً`);
-  } else if (action === 'seek') {
-    showToast(`⏩ ${by} قفز بالتوقيت إلى ${formatTime(time)}`);
+// تبديل أوضاع العرض (متصفح مفتوح / مشغل فيديو)
+function switchMainMode(mode) {
+  currentActiveMode = mode;
+  if (mode === 'browser') {
+    browserView.style.display = 'flex';
+    playerView.style.display = 'none';
+    btnModeBrowser.classList.add('active');
+    btnModePlayer.classList.remove('active');
+  } else {
+    browserView.style.display = 'none';
+    playerView.style.display = 'flex';
+    btnModeBrowser.classList.remove('active');
+    btnModePlayer.classList.add('active');
   }
+  socket.emit('switch-mode', { roomId: currentRoomId, mode });
+}
 
-  setTimeout(() => {
-    isSyncing = false;
-  }, 400);
+// ==============================================================
+// 3. أحداث مشغل الفيديو المباشر
+// ==============================================================
+
+cinemaPlayer.addEventListener('play', () => {
+  if (isSyncing) return;
+  socket.emit('video-action', { roomId: currentRoomId, action: 'play', time: cinemaPlayer.currentTime });
 });
 
-// رفض الأمر إذا كانت القاعة مقفلة للمضيف
-socket.on('action-denied', (data) => {
-  showToast(`🔒 ${data.reason}`);
+cinemaPlayer.addEventListener('pause', () => {
+  if (isSyncing) return;
+  socket.emit('video-action', { roomId: currentRoomId, action: 'pause', time: cinemaPlayer.currentTime });
 });
 
-// تحديث إعدادات القاعة
-socket.on('room-settings-updated', (settings) => {
-  hostOnlyControl = settings.hostOnlyControl;
-  updateHostControlsUI();
+cinemaPlayer.addEventListener('seeked', () => {
+  if (isSyncing) return;
+  socket.emit('video-action', { roomId: currentRoomId, action: 'seek', time: cinemaPlayer.currentTime });
 });
 
-// ترقية المضيف عند خروج المضيف السابق
-socket.on('promoted-to-host', () => {
-  isHost = true;
-  updateHostControlsUI();
-  showToast('👑 أصبحت أنت الآن المضيف الرسمي للقاعة!');
-});
-
-// تحديث قائمة المتصلين
-socket.on('user-list', (users) => {
-  usersCountBadge.innerText = users.length;
-  usersList.innerHTML = users.map(u => `
-    <div class="user-card">
-      <div class="user-info">
-        <span class="user-avatar">${u.avatar || '🍿'}</span>
-        <span class="user-name">${escapeHtml(u.name)} ${u.id === socket.id ? '(أنت)' : ''}</span>
-      </div>
-      ${u.isHost ? '<span class="host-badge">مضيف 👑</span>' : ''}
-    </div>
-  `).join('');
-});
-
-// استقبال رسالة دردشة جديدة
-socket.on('new-message', (msg) => {
-  appendMessage(msg);
-});
-
-// استقبال تفاعل طافي (Floating Reaction)
-socket.on('floating-reaction', ({ emoji }) => {
-  createFloatingReaction(emoji);
-});
-
-// ==========================================
-// 4. وظائف تغيير مصادر الوسائط
-// ==========================================
-
-// تغيير رابط الفيديو المباشر / كلاود
 function applyVideoUrl() {
   const url = videoUrlInput.value.trim();
   if (!url) return;
-
   isSyncing = true;
-  player.srcObject = null; // إيقاف مشاركة الشاشة إن وجدت
-  player.src = url;
-  player.play().catch(() => {});
-
-  socket.emit('video-action', {
-    roomId: currentRoomId,
-    action: 'play',
-    sourceType: 'url',
-    url: url,
-    time: 0
-  });
-
+  cinemaPlayer.src = url;
+  cinemaPlayer.play().catch(() => {});
+  socket.emit('video-action', { roomId: currentRoomId, action: 'play', sourceType: 'url', url: url, time: 0 });
   setTimeout(() => { isSyncing = false; }, 400);
-  showToast('🎬 تم تحميل الفيديو بنجاح');
 }
 
-// تشغيل ملف محلي من الموبايل أو الكمبيوتر
 function handleLocalFile(e) {
   const file = e.target.files[0];
   if (!file) return;
-
   const fileUrl = URL.createObjectURL(file);
   isSyncing = true;
-  player.srcObject = null;
-  player.src = fileUrl;
-  player.play().catch(() => {});
-
-  socket.emit('video-action', {
-    roomId: currentRoomId,
-    action: 'play',
-    sourceType: 'local',
-    fileName: file.name,
-    time: 0
-  });
-
+  cinemaPlayer.src = fileUrl;
+  cinemaPlayer.play().catch(() => {});
+  socket.emit('video-action', { roomId: currentRoomId, action: 'play', sourceType: 'local', fileName: file.name, time: 0 });
   setTimeout(() => { isSyncing = false; }, 400);
   showToast(`📁 تم تشغيل الملف المحلي: ${file.name}`);
 }
 
-// مشاركة الشاشة بنقرة زر وبثها بصوت النظام (Screen Share)
 async function startScreenShare() {
   try {
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: { cursor: 'always' },
-      audio: true
-    });
-
-    activeStream = stream;
-    player.src = '';
-    player.srcObject = stream;
-    player.play();
-
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    switchMainMode('player');
+    cinemaPlayer.srcObject = stream;
+    cinemaPlayer.play();
     showToast('🖥️ تم بدء مشاركة الشاشة بصوت النظام!');
-
-    // عند إيقاف المشاركة من المتصفح
     stream.getVideoTracks()[0].onended = () => {
+      cinemaPlayer.srcObject = null;
       showToast('🛑 تم إنهاء مشاركة الشاشة');
-      player.srcObject = null;
     };
   } catch (err) {
-    console.error(err);
-    showToast('❌ لم يتم تفعيل مشاركة الشاشة أو تم إلغاؤها');
+    showToast('❌ تم إلغاء مشاركة الشاشة');
   }
 }
 
-// تحميل ملف ترجمة خارجي (SRT أو VTT)
 function handleSubtitleFile(e) {
   const file = e.target.files[0];
   if (!file) return;
-
   const reader = new FileReader();
   reader.onload = function(evt) {
     let content = evt.target.result;
-
-    // إذا كان الملف SRT نحوله تلقائياً لـ WebVTT
     if (file.name.endsWith('.srt')) {
-      content = 'WEBVTT\n\n' + content
-        .replace(/(\d\d:\d\d:\d\d),(\d\d\d)/g, '$1.$2');
+      content = 'WEBVTT\n\n' + content.replace(/(\d\d:\d\d:\d\d),(\d\d\d)/g, '$1.$2');
     }
-
-    const vttBlob = new Blob([content], { type: 'text/vtt' });
-    const trackUrl = URL.createObjectURL(vttBlob);
-
-    // إزالة التراكات السابقة
-    const oldTracks = player.querySelectorAll('track');
-    oldTracks.forEach(t => t.remove());
-
+    const trackBlob = new Blob([content], { type: 'text/vtt' });
     const track = document.createElement('track');
     track.kind = 'subtitles';
     track.label = file.name;
     track.srclang = 'ar';
-    track.src = trackUrl;
+    track.src = URL.createObjectURL(trackBlob);
     track.default = true;
-    player.appendChild(track);
-
-    showToast(`💬 تم تفعيل ملف الترجمة: ${file.name}`);
+    cinemaPlayer.querySelectorAll('track').forEach(t => t.remove());
+    cinemaPlayer.appendChild(track);
+    showToast(`💬 تم تفعيل الترجمة: ${file.name}`);
   };
   reader.readAsText(file);
 }
 
-// تبديل قفل تحكم المضيف
 function toggleHostLock() {
   if (!isHost) {
     showToast('⚠️ المضيف فقط هو من يستطيع تغيير إعدادات التحكم.');
@@ -376,26 +296,106 @@ function updateHostControlsUI() {
   }
 }
 
-// ==========================================
-// 5. نظام الدردشة والتفاعلات الحية
-// ==========================================
+// ==============================================================
+// 4. استقبال أحداث السيرفر (Socket Listeners)
+// ==============================================================
+
+socket.on('sync-state', (state) => {
+  isHost = state.isHost;
+  hostOnlyControl = state.hostOnlyControl;
+  updateHostControlsUI();
+
+  // ضبط الوضع والرابط الأولي
+  if (state.activeMode) {
+    switchMainMode(state.activeMode);
+  }
+  if (state.browserUrl) {
+    browserNavigateTo(state.browserUrl);
+  }
+
+  const v = state.videoState;
+  if (v && v.url && v.sourceType === 'url') {
+    isSyncing = true;
+    cinemaPlayer.src = v.url;
+    videoUrlInput.value = v.url;
+    if (Math.abs(cinemaPlayer.currentTime - v.currentTime) > 0.5) {
+      cinemaPlayer.currentTime = v.currentTime;
+    }
+    if (v.isPlaying) cinemaPlayer.play().catch(() => {});
+    setTimeout(() => { isSyncing = false; }, 400);
+  }
+
+  chatMessages.innerHTML = '';
+  if (state.chatHistory) state.chatHistory.forEach(appendMessage);
+});
+
+// مزامنة انتقال المتصفح لجميع المتصلين
+socket.on('sync-browser-navigate', ({ url, by }) => {
+  showToast(`🌐 ${by} انتقل إلى: ${url}`);
+  browserNavigateTo(url);
+});
+
+socket.on('sync-mode-switch', ({ mode }) => {
+  switchMainMode(mode);
+});
+
+socket.on('sync-action', (data) => {
+  isSyncing = true;
+  const { action, time, url, sourceType, fileName, by } = data;
+  if (url && sourceType === 'url' && cinemaPlayer.src !== url) cinemaPlayer.src = url;
+  if (time !== undefined && Math.abs(cinemaPlayer.currentTime - time) > 0.45) cinemaPlayer.currentTime = time;
+  if (action === 'play') { cinemaPlayer.play().catch(() => {}); showToast(`▶️ ${by} استأنف العرض`); }
+  if (action === 'pause') { cinemaPlayer.pause(); showToast(`⏸️ ${by} أوقف العرض مؤقتاً`); }
+  if (action === 'seek') showToast(`⏩ ${by} قفز بالتوقيت`);
+  setTimeout(() => { isSyncing = false; }, 400);
+});
+
+socket.on('action-denied', (data) => showToast(`🔒 ${data.reason}`));
+socket.on('room-settings-updated', (s) => { hostOnlyControl = s.hostOnlyControl; updateHostControlsUI(); });
+socket.on('promoted-to-host', () => { isHost = true; updateHostControlsUI(); showToast('👑 أصبحت أنت المضيف للقاعة!'); });
+
+socket.on('user-list', (users) => {
+  usersCountBadge.innerText = users.length;
+  usersList.innerHTML = users.map(u => `
+    <div class="user-card">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span>${u.avatar || '🍿'}</span>
+        <span class="user-name">${escapeHtml(u.name)} ${u.id === socket.id ? '(أنت)' : ''}</span>
+      </div>
+      ${u.isHost ? '<span class="host-badge">مضيف 👑</span>' : ''}
+    </div>
+  `).join('');
+});
+
+socket.on('new-message', (msg) => appendMessage(msg));
+socket.on('floating-reaction', ({ emoji }) => createFloatingReaction(emoji));
+
+// استقبال رسائل الجسر من داخل الإطار (iframe bridge)
+window.addEventListener('message', (event) => {
+  if (event.data && event.data.type && event.data.type.startsWith('SYNC_')) {
+    const action = event.data.type === 'SYNC_PLAY' ? 'play' : (event.data.type === 'SYNC_PAUSE' ? 'pause' : 'seek');
+    socket.emit('video-action', {
+      roomId: currentRoomId,
+      action: action,
+      time: event.data.time || 0
+    });
+  }
+});
+
+// ==============================================================
+// 5. الدردشة والتفاعلات
+// ==============================================================
 
 function sendChatMessage() {
   const text = chatInput.value.trim();
   if (!text) return;
-
-  socket.emit('chat-message', {
-    roomId: currentRoomId,
-    message: text
-  });
-
+  socket.emit('chat-message', { roomId: currentRoomId, message: text });
   chatInput.value = '';
 }
 
 function appendMessage(msg) {
   const isMine = msg.userId === socket.id;
   const msgEl = document.createElement('div');
-
   if (msg.system) {
     msgEl.className = 'msg-system';
     msgEl.innerText = msg.text;
@@ -410,17 +410,12 @@ function appendMessage(msg) {
       <div class="msg-body">${escapeHtml(msg.text)}</div>
     `;
   }
-
   chatMessages.appendChild(msgEl);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// إرسال تفاعل حركي طافٍ (Floating Reaction)
 function sendReaction(emoji) {
-  socket.emit('send-reaction', {
-    roomId: currentRoomId,
-    emoji: emoji
-  });
+  socket.emit('send-reaction', { roomId: currentRoomId, emoji });
 }
 
 function createFloatingReaction(emoji) {
@@ -429,17 +424,12 @@ function createFloatingReaction(emoji) {
   el.innerText = emoji;
   el.style.right = `${Math.floor(Math.random() * 80)}px`;
   reactionsBox.appendChild(el);
-
-  setTimeout(() => {
-    el.remove();
-  }, 2800);
+  setTimeout(() => el.remove(), 2800);
 }
 
-// تبديل تبويبات القائمة الجانبية (شات / حضور)
 function switchSidebarTab(tabName) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
   if (tabName === 'chat') {
     document.getElementById('tabBtnChat').classList.add('active');
     document.getElementById('tabContentChat').classList.add('active');
@@ -449,21 +439,6 @@ function switchSidebarTab(tabName) {
   }
 }
 
-// أدوات مساعدة
-function formatTime(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s < 10 ? '0' : ''}${s}`;
-}
-
 function escapeHtml(str) {
-  return (str || '').replace(/[&<>"']/g, function(m) {
-    return {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;'
-    }[m];
-  });
+  return (str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
 }

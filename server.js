@@ -8,6 +8,80 @@ const app = express();
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// =========================================================================
+// 🌐 خادم وسيط ذكي (Reverse Proxy) لكسر قيود المواقع وفتحها داخل المتصفح
+// يقوم بحذف ترويسات X-Frame-Options و CSP للسماح بفتح المواقع داخل القاعة
+// =========================================================================
+app.get('/api/proxy', async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) {
+    return res.status(400).send('رابط غير صالح');
+  }
+
+  try {
+    let cleanUrl = targetUrl;
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      cleanUrl = 'https://' + cleanUrl;
+    }
+
+    const response = await fetch(cleanUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8'
+      }
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+
+    // إزالة ترويسات الحماية التي تمنع التضمين
+    res.removeHeader('X-Frame-Options');
+    res.removeHeader('Content-Security-Policy');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    if (contentType.includes('text/html')) {
+      let html = await response.text();
+
+      // حقن <base> حتى تعمل الروابط والصور والملفات التابعة للموقع الأصلي
+      const baseTag = `<base href="${cleanUrl}">`;
+
+      // حقن سكريبت الجسر لمزامنة الفيديو في الموقع تلقائياً
+      const bridgeScript = `
+        <script>
+          window.addEventListener('load', () => {
+            console.log('[Hyperbeam Cinema Bridge] تم ربط الموقع بنجاح');
+            setInterval(() => {
+              const video = document.querySelector('video');
+              if (video && !video.__cinemaAttached) {
+                video.__cinemaAttached = true;
+                video.addEventListener('play', () => window.parent.postMessage({ type: 'SYNC_PLAY', time: video.currentTime }, '*'));
+                video.addEventListener('pause', () => window.parent.postMessage({ type: 'SYNC_PAUSE', time: video.currentTime }, '*'));
+                video.addEventListener('seeked', () => window.parent.postMessage({ type: 'SYNC_SEEK', time: video.currentTime }, '*'));
+              }
+            }, 1000);
+          });
+        </script>
+      `;
+
+      if (html.includes('<head>')) {
+        html = html.replace('<head>', `<head>${baseTag}${bridgeScript}`);
+      } else {
+        html = baseTag + bridgeScript + html;
+      }
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(html);
+    } else {
+      const buffer = await response.arrayBuffer();
+      res.setHeader('Content-Type', contentType);
+      return res.send(Buffer.from(buffer));
+    }
+  } catch (err) {
+    console.error('Proxy Error:', err.message);
+    res.status(500).send(`تعذر تحميل الموقع عبر الوسيط: ${err.message}`);
+  }
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -16,27 +90,8 @@ const io = new Server(server, {
   }
 });
 
-// تخزين حالات قاعات السينما في الذاكرة
-// Room Schema:
-// rooms[roomId] = {
-//   id: string,
-//   hostId: string,
-//   hostOnlyControl: boolean,
-//   videoState: {
-//     sourceType: 'url' | 'local' | 'screen',
-//     url: string,
-//     fileName: string,
-//     currentTime: number,
-//     isPlaying: boolean,
-//     playbackRate: number,
-//     lastUpdated: number
-//   },
-//   users: [{ id, name, isHost, avatar }],
-//   chatHistory: []
-// }
 const rooms = {};
 
-// دالة لحساب الوقت الحالي التقديري للفيديو مع مراعاة سرعة التشغيل
 function getEstimatedCurrentTime(videoState) {
   if (!videoState.isPlaying) {
     return videoState.currentTime;
@@ -56,12 +111,13 @@ io.on('connection', (socket) => {
     socket.roomId = cleanRoomId;
     socket.username = cleanName;
 
-    // إذا كانت القاعة غير موجودة يتم إنشاؤها وتعيين المستخدم كمضيف (Host)
     if (!rooms[cleanRoomId]) {
       rooms[cleanRoomId] = {
         id: cleanRoomId,
         hostId: socket.id,
         hostOnlyControl: false,
+        activeMode: 'browser',
+        browserUrl: 'https://www.google.com',
         videoState: {
           sourceType: 'url',
           url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
@@ -89,12 +145,13 @@ io.on('connection', (socket) => {
 
     room.users.push(userData);
 
-    // إرسال حالة القاعة الحالية بدقة للمستخدم الجديد
     const syncState = {
       roomId: cleanRoomId,
       isHost: isHost,
       hostId: room.hostId,
       hostOnlyControl: room.hostOnlyControl,
+      activeMode: room.activeMode,
+      browserUrl: room.browserUrl,
       videoState: {
         ...room.videoState,
         currentTime: getEstimatedCurrentTime(room.videoState)
@@ -104,12 +161,9 @@ io.on('connection', (socket) => {
     };
 
     socket.emit('sync-state', syncState);
-
-    // إشعار باقي المتصلين بانضمام الصديق الجديد وتحديث قائمة الحضور
     socket.to(cleanRoomId).emit('user-joined', userData);
     io.to(cleanRoomId).emit('user-list', room.users);
 
-    // رسالة نظام في الشات
     const welcomeMsg = {
       id: 'sys_' + Date.now(),
       system: true,
@@ -120,13 +174,39 @@ io.on('connection', (socket) => {
     io.to(cleanRoomId).emit('new-message', welcomeMsg);
   });
 
-  // 2. استقبال أوامر التحكم في الفيديو ومزامنتها لحظياً
+  // 2. مزامنة تنقل المتصفح المفتوح (Browser Navigation Sync)
+  socket.on('browser-navigate', ({ roomId, url }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+
+    if (room.hostOnlyControl && socket.id !== room.hostId) {
+      socket.emit('action-denied', { reason: 'التحكم في المتصفح مقصور على المضيف حالياً.' });
+      return;
+    }
+
+    room.browserUrl = url;
+    room.activeMode = 'browser';
+
+    socket.to(roomId).emit('sync-browser-navigate', {
+      url: url,
+      by: socket.username
+    });
+  });
+
+  // 3. تبديل وضع العرض
+  socket.on('switch-mode', ({ roomId, mode }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+    room.activeMode = mode;
+    socket.to(roomId).emit('sync-mode-switch', { mode });
+  });
+
+  // 4. استقبال أوامر التحكم في الفيديو ومزامنتها لحظياً
   socket.on('video-action', (data) => {
     const { roomId, action, time, url, sourceType, fileName, rate } = data;
     const room = rooms[roomId];
     if (!room) return;
 
-    // التحقق من صلاحية التحكم إذا كانت القاعة مقفلة للمضيف فقط
     if (room.hostOnlyControl && socket.id !== room.hostId) {
       socket.emit('action-denied', {
         reason: 'التحكم مقصور على منشئ القاعة (المضيف) حالياً.'
@@ -134,7 +214,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // تحديث حالة الفيديو في الغرفة
     const v = room.videoState;
     if (sourceType) v.sourceType = sourceType;
     if (url !== undefined) v.url = url;
@@ -152,7 +231,6 @@ io.on('connection', (socket) => {
       v.lastUpdated = Date.now();
     }
 
-    // بث الأمر فوراً لجميع المتصلين في الغرفة ما عدا المرسل
     socket.to(roomId).emit('sync-action', {
       action,
       time: v.currentTime,
@@ -164,7 +242,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // 3. قفل / فتح التحكم للمضيف فقط
+  // 5. قفل / فتح التحكم للمضيف فقط
   socket.on('toggle-host-control', ({ roomId }) => {
     const room = rooms[roomId];
     if (!room || room.hostId !== socket.id) return;
@@ -179,15 +257,15 @@ io.on('connection', (socket) => {
       id: 'sys_' + Date.now(),
       system: true,
       text: room.hostOnlyControl
-        ? `🔒 جعل المضيف التحكم في العرض حصرياً له.`
-        : `🔓 تم فتح صلاحية التحكم في العرض لجميع المتواجدين.`,
+        ? `🔒 جعل المضيف التحكم في التصفح والعرض حصرياً له.`
+        : `🔓 تم فتح صلاحية التحكم في التصفح والعرض لجميع المتواجدين.`,
       time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
     };
     room.chatHistory.push(msg);
     io.to(roomId).emit('new-message', msg);
   });
 
-  // 4. المحادثة اللحظية
+  // 6. المحادثة اللحظية
   socket.on('chat-message', ({ roomId, message }) => {
     const room = rooms[roomId];
     if (!room || !message || !message.trim()) return;
@@ -207,7 +285,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('new-message', chatMsg);
   });
 
-  // 5. التفاعلات التعبيرية الحية المتطايرة (Reactions: 🍿 😂 ❤️ 😱 🔥 👏)
+  // 7. التفاعلات التعبيرية الحية
   socket.on('send-reaction', ({ roomId, emoji }) => {
     if (!rooms[roomId]) return;
     io.to(roomId).emit('floating-reaction', {
@@ -217,24 +295,16 @@ io.on('connection', (socket) => {
     });
   });
 
-  // 6. إشارات WebRTC للبث المباشر ومشاركة الشاشة P2P
+  // 8. إشارات WebRTC للبث المباشر
   socket.on('webrtc-signal', ({ roomId, targetId, signal, type }) => {
     if (targetId) {
-      io.to(targetId).emit('webrtc-signal', {
-        senderId: socket.id,
-        signal,
-        type
-      });
+      io.to(targetId).emit('webrtc-signal', { senderId: socket.id, signal, type });
     } else {
-      socket.to(roomId).emit('webrtc-signal', {
-        senderId: socket.id,
-        signal,
-        type
-      });
+      socket.to(roomId).emit('webrtc-signal', { senderId: socket.id, signal, type });
     }
   });
 
-  // 7. معالجة مغادرة المستخدم
+  // 9. معالجة مغادرة المستخدم
   socket.on('disconnect', () => {
     const { roomId } = socket;
     if (!roomId || !rooms[roomId]) return;
@@ -242,7 +312,6 @@ io.on('connection', (socket) => {
     const room = rooms[roomId];
     room.users = room.users.filter(u => u.id !== socket.id);
 
-    // إذا خرج المضيف وكانت الغرفة لا تزال بها أشخاص، يتم ترقية أول شخص كمضيف جديد
     if (room.hostId === socket.id && room.users.length > 0) {
       room.hostId = room.users[0].id;
       room.users[0].isHost = true;
@@ -256,8 +325,6 @@ io.on('connection', (socket) => {
     }
 
     io.to(roomId).emit('user-list', room.users);
-
-    // حذف الغرفة تلقائياً إذا أصبحت فارغة تماماً
     if (room.users.length === 0) {
       delete rooms[roomId];
     }
