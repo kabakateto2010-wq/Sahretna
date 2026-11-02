@@ -1,18 +1,15 @@
 // ==============================================================
-// 🍿 Hyperbeam Cinema - Client App (Virtual Browser + Sync)
+// 🍿 Hyperbeam Engine - Client App (Virtual Browser Streaming)
 // ==============================================================
 
 const socket = io();
-
-// التحقق مما إذا كان التطبيق يعمل داخل Electron
-const isElectron = typeof navigator === 'object' && typeof navigator.userAgent === 'string' && navigator.userAgent.indexOf('Electron') >= 0;
 
 let currentRoomId = '';
 let currentUsername = '';
 let isHost = false;
 let hostOnlyControl = false;
 let isSyncing = false;
-let currentActiveMode = 'browser'; // 'browser' أو 'player'
+let currentActiveMode = 'browser';
 
 // عناصر واجهة المستخدم
 const welcomeModal = document.getElementById('welcomeModal');
@@ -29,7 +26,9 @@ const btnModePlayer = document.getElementById('btnModePlayer');
 
 const browserUrlInput = document.getElementById('browserUrlInput');
 const browserContainer = document.getElementById('browserContainer');
-let browserFrame = document.getElementById('browserFrame');
+const browserCanvas = document.getElementById('browserCanvas');
+const browserLoadingOverlay = document.getElementById('browserLoadingOverlay');
+const ctx = browserCanvas.getContext('2d');
 
 const cinemaPlayer = document.getElementById('cinemaPlayer');
 const videoUrlInput = document.getElementById('videoUrlInput');
@@ -42,41 +41,15 @@ const usersList = document.getElementById('usersList');
 const usersCountBadge = document.getElementById('usersCountBadge');
 const reactionsBox = document.getElementById('reactionsBox');
 
-// إذا كنا في إلكترون نقوم بتجهيز عنصر <webview> الأصلي المفتوح بدون قيود
-let webviewEl = null;
-if (isElectron) {
-  browserContainer.innerHTML = '';
-  webviewEl = document.createElement('webview');
-  webviewEl.id = 'browserWebview';
-  webviewEl.setAttribute('allowpopups', 'true');
-  webviewEl.setAttribute('webpreferences', 'allowRunningInsecureContent, javascript=yes');
-  webviewEl.style.width = '100%';
-  webviewEl.style.height = '100%';
-  webviewEl.style.border = 'none';
-  webviewEl.src = 'https://www.google.com';
-  browserContainer.appendChild(webviewEl);
-
-  webviewEl.addEventListener('did-navigate', (e) => {
-    browserUrlInput.value = e.url;
-    if (isHost && !isSyncing) {
-      socket.emit('browser-navigate', { roomId: currentRoomId, url: e.url });
-    }
-  });
-
-  webviewEl.addEventListener('did-navigate-in-page', (e) => {
-    browserUrlInput.value = e.url;
-    if (isHost && !isSyncing) {
-      socket.emit('browser-navigate', { roomId: currentRoomId, url: e.url });
-    }
-  });
-}
-
 // 1. الدخول للقاعة
 const urlParams = new URLSearchParams(window.location.search);
 const initialRoomFromUrl = urlParams.get('room');
 if (initialRoomFromUrl) {
   customRoomInput.value = initialRoomFromUrl;
 }
+
+// تعيين اسم افتراضي مسبقاً للتسهيل
+usernameInput.value = 'أحمد_' + Math.floor(Math.random() * 900 + 100);
 
 function enterCinema(isNewRoom = false) {
   let name = usernameInput.value.trim();
@@ -116,72 +89,152 @@ function showToast(text, duration = 3000) {
 }
 
 // ==============================================================
-// 2. التحكم في المتصفح المفتوح (Virtual Browser Navigation)
+// 2. التحكم في المتصفح الافتراضي (Canvas Stream & Inputs)
 // ==============================================================
 
-function applyBrowserUrl() {
-  let url = browserUrlInput.value.trim();
-  if (!url) return;
+// استقبال إطارات البث المباشر للشاشة ورسمها بسلاسة
+socket.on('browser-frame', (frameBase64) => {
+  const img = new Image();
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, browserCanvas.width, browserCanvas.height);
+    browserLoadingOverlay.classList.add('hidden');
+  };
+  img.src = frameBase64;
+});
 
-  // إذا لم يكتب المستخدم بروتوكول http/https، نتحقق إذا كان دومين أو بحث جوجل
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    if (url.includes('.') && !url.includes(' ')) {
-      url = 'https://' + url;
-    } else {
-      url = 'https://www.google.com/search?q=' + encodeURIComponent(url);
-    }
+// تحديث شريط الرابط تلقائياً عند تنقل المتصفح
+socket.on('sync-browser-url', ({ url }) => {
+  if (document.activeElement !== browserUrlInput) {
+    browserUrlInput.value = url;
   }
+});
 
-  browserUrlInput.value = url;
-  browserNavigateTo(url);
-
-  // إرسال الرابط لكل الأصدقاء في القاعة لمزامنته
-  socket.emit('browser-navigate', {
-    roomId: currentRoomId,
-    url: url
-  });
+// إرسال الرابط المطلوب
+function applyBrowserUrl() {
+  const url = browserUrlInput.value.trim();
+  if (!url) return;
+  browserLoadingOverlay.classList.remove('hidden');
+  socket.emit('browser-navigate', { roomId: currentRoomId, url: url });
 }
 
 function browserNavigateTo(url) {
   browserUrlInput.value = url;
-  isSyncing = true;
-
-  if (isElectron && webviewEl) {
-    webviewEl.loadURL(url);
-  } else {
-    // في المتصفح العادي نستخدم البروكسي الذكي لفك حظر التضمين
-    browserFrame.src = `/api/proxy?url=${encodeURIComponent(url)}`;
-  }
-
-  setTimeout(() => { isSyncing = false; }, 600);
+  browserLoadingOverlay.classList.remove('hidden');
+  socket.emit('browser-navigate', { roomId: currentRoomId, url: url });
 }
 
 function browserGoBack() {
-  if (isElectron && webviewEl) {
-    if (webviewEl.canGoBack()) webviewEl.goBack();
-  } else {
-    try { browserFrame.contentWindow.history.back(); } catch (e) {}
-  }
+  socket.emit('browser-back', { roomId: currentRoomId });
 }
 
 function browserGoForward() {
-  if (isElectron && webviewEl) {
-    if (webviewEl.canGoForward()) webviewEl.goForward();
-  } else {
-    try { browserFrame.contentWindow.history.forward(); } catch (e) {}
-  }
+  socket.emit('browser-forward', { roomId: currentRoomId });
 }
 
 function browserReload() {
-  if (isElectron && webviewEl) {
-    webviewEl.reload();
-  } else {
-    browserFrame.src = browserFrame.src;
-  }
+  browserLoadingOverlay.classList.remove('hidden');
+  socket.emit('browser-reload', { roomId: currentRoomId });
   showToast('🔄 تم تحديث الصفحة');
 }
 
-// تبديل أوضاع العرض (متصفح مفتوح / مشغل فيديو)
+// حساب إحداثيات الماوس بدقة على أبعاد المتصفح 1280x720
+function getCanvasCoords(e) {
+  const rect = browserCanvas.getBoundingClientRect();
+  const scaleX = browserCanvas.width / rect.width;
+  const scaleY = browserCanvas.height / rect.height;
+  return {
+    x: (e.clientX - rect.left) * scaleX,
+    y: (e.clientY - rect.top) * scaleY
+  };
+}
+
+let lastMouseMove = 0;
+browserCanvas.addEventListener('mousemove', (e) => {
+  const now = Date.now();
+  if (now - lastMouseMove < 35) return;
+  lastMouseMove = now;
+  const coords = getCanvasCoords(e);
+  socket.emit('browser-mouse', {
+    roomId: currentRoomId,
+    event: { type: 'mouseMoved', x: coords.x, y: coords.y }
+  });
+});
+
+browserCanvas.addEventListener('mousedown', (e) => {
+  browserContainer.focus();
+  const coords = getCanvasCoords(e);
+  socket.emit('browser-mouse', {
+    roomId: currentRoomId,
+    event: {
+      type: 'mousePressed',
+      x: coords.x,
+      y: coords.y,
+      button: e.button === 2 ? 'right' : 'left',
+      clickCount: 1
+    }
+  });
+});
+
+browserCanvas.addEventListener('mouseup', (e) => {
+  const coords = getCanvasCoords(e);
+  socket.emit('browser-mouse', {
+    roomId: currentRoomId,
+    event: {
+      type: 'mouseReleased',
+      x: coords.x,
+      y: coords.y,
+      button: e.button === 2 ? 'right' : 'left',
+      clickCount: 1
+    }
+  });
+});
+
+browserCanvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const coords = getCanvasCoords(e);
+  socket.emit('browser-mouse', {
+    roomId: currentRoomId,
+    event: {
+      type: 'wheel',
+      x: coords.x,
+      y: coords.y,
+      deltaX: e.deltaX,
+      deltaY: e.deltaY
+    }
+  });
+}, { passive: false });
+
+browserCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// معالجة ضغطات الكيبورد والكتابة داخل المتصفح الافتراضي
+browserContainer.addEventListener('keydown', (e) => {
+  if (e.target === chatInput || e.target === browserUrlInput || e.target === usernameInput || e.target === customRoomInput) {
+    return;
+  }
+
+  if (['Space', 'ArrowUp', 'ArrowDown', 'Backspace', 'Tab', 'Enter'].includes(e.code)) {
+    e.preventDefault();
+  }
+
+  if (e.key === 'Enter') {
+    socket.emit('browser-key', { roomId: currentRoomId, event: { type: 'rawKeyDown', key: 'Enter', code: 'Enter' } });
+  } else if (e.key === 'Backspace') {
+    socket.emit('browser-key', { roomId: currentRoomId, event: { type: 'rawKeyDown', key: 'Backspace', code: 'Backspace' } });
+  } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+    socket.emit('browser-key', { roomId: currentRoomId, event: { type: 'char', text: e.key } });
+  } else {
+    socket.emit('browser-key', { roomId: currentRoomId, event: { type: 'rawKeyDown', key: e.key, code: e.code } });
+  }
+});
+
+browserContainer.addEventListener('keyup', (e) => {
+  if (e.target === chatInput || e.target === browserUrlInput || e.target === usernameInput || e.target === customRoomInput) {
+    return;
+  }
+  socket.emit('browser-key', { roomId: currentRoomId, event: { type: 'keyUp', key: e.key, code: e.code } });
+});
+
+// تبديل أوضاع العرض (متصفح افتراضي / مشغل فيديو)
 function switchMainMode(mode) {
   currentActiveMode = mode;
   if (mode === 'browser') {
@@ -305,12 +358,11 @@ socket.on('sync-state', (state) => {
   hostOnlyControl = state.hostOnlyControl;
   updateHostControlsUI();
 
-  // ضبط الوضع والرابط الأولي
   if (state.activeMode) {
     switchMainMode(state.activeMode);
   }
   if (state.browserUrl) {
-    browserNavigateTo(state.browserUrl);
+    browserUrlInput.value = state.browserUrl;
   }
 
   const v = state.videoState;
@@ -327,12 +379,6 @@ socket.on('sync-state', (state) => {
 
   chatMessages.innerHTML = '';
   if (state.chatHistory) state.chatHistory.forEach(appendMessage);
-});
-
-// مزامنة انتقال المتصفح لجميع المتصلين
-socket.on('sync-browser-navigate', ({ url, by }) => {
-  showToast(`🌐 ${by} انتقل إلى: ${url}`);
-  browserNavigateTo(url);
 });
 
 socket.on('sync-mode-switch', ({ mode }) => {
@@ -369,18 +415,6 @@ socket.on('user-list', (users) => {
 
 socket.on('new-message', (msg) => appendMessage(msg));
 socket.on('floating-reaction', ({ emoji }) => createFloatingReaction(emoji));
-
-// استقبال رسائل الجسر من داخل الإطار (iframe bridge)
-window.addEventListener('message', (event) => {
-  if (event.data && event.data.type && event.data.type.startsWith('SYNC_')) {
-    const action = event.data.type === 'SYNC_PLAY' ? 'play' : (event.data.type === 'SYNC_PAUSE' ? 'pause' : 'seek');
-    socket.emit('video-action', {
-      roomId: currentRoomId,
-      action: action,
-      time: event.data.time || 0
-    });
-  }
-});
 
 // ==============================================================
 // 5. الدردشة والتفاعلات

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🍿 سهرة بلس | متصفح السينما المفتوح (Hyperbeam Virtual Browser)</title>
+  <title>🍿 سهرة بلس | متصفح السينما الافتراضي المباشر (Hyperbeam Engine)</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,13 +12,13 @@
   <header class="navbar">
     <div class="brand">
       <div class="brand-logo">🍿 سهرة بلس</div>
-      <div class="brand-badge">HYPERBEAM MODE</div>
+      <div class="brand-badge">HYPERBEAM ENGINE</div>
     </div>
 
-    <!-- أزرار التبديل بين وضع المتصفح المفتوح ومشغل الفيديو -->
+    <!-- أزرار التبديل بين وضع المتصفح الافتراضي ومشغل الفيديو -->
     <div class="mode-switcher">
       <button class="mode-btn active" id="btnModeBrowser" onclick="switchMainMode('browser')">
-        🌐 المتصفح المفتوح (أي موقع)
+        🌐 المتصفح الافتراضي (أي موقع في العالم)
       </button>
       <button class="mode-btn" id="btnModePlayer" onclick="switchMainMode('player')">
         🎬 مشغل الفيديو المباشر
@@ -43,7 +43,7 @@
 
     <section class="main-stage">
 
-      <!-- 1. واجهة المتصفح المفتوح (Hyperbeam Browser Mode) -->
+      <!-- 1. واجهة المتصفح الافتراضي الحقيقي (Hyperbeam Canvas Engine) -->
       <div class="browser-view" id="browserView">
         <!-- شريط أدوات التصفح -->
         <div class="browser-nav-bar">
@@ -52,7 +52,7 @@
           <button class="nav-ctrl-btn" onclick="browserReload()" title="تحديث">🔄</button>
           <button class="nav-ctrl-btn" onclick="browserNavigateTo('https://www.google.com')" title="الصفحة الرئيسية">🏠</button>
 
-          <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="اكتب أي رابط أو ابحث في جوجل (مثال: https://www.google.com أو موقع أفلام)..." value="https://www.google.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
+          <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="اكتب أي رابط أو ابحث في جوجل (مثال: https://www.youtube.com أو موقع أفلام)..." value="https://www.google.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
 
           <button class="btn-primary" onclick="applyBrowserUrl()">تصفح 🚀</button>
           <button class="nav-ctrl-btn" onclick="startScreenShare()" title="مشاركة الشاشة الحية مع الصوت">🖥️</button>
@@ -60,22 +60,25 @@
 
         <!-- أزرار الاختصارات السريعة -->
         <div class="shortcuts-bar">
-          <span style="font-size: 11px; color: var(--text-muted);">اختصارات:</span>
+          <span style="font-size: 11px; color: var(--text-muted);">اختصارات سريعة:</span>
           <span class="shortcut-pill" onclick="browserNavigateTo('https://www.google.com')">🔍 بحث جوجل</span>
           <span class="shortcut-pill" onclick="browserNavigateTo('https://www.youtube.com')">🎬 يوتيوب</span>
           <span class="shortcut-pill" onclick="browserNavigateTo('https://www.dailymotion.com')">🍿 ديلي موشن</span>
-          <span class="shortcut-pill" onclick="browserNavigateTo('https://archive.org/details/movies')">🎥 أرشيف الأفلام المجانية</span>
+          <span class="shortcut-pill" onclick="browserNavigateTo('https://archive.org/details/movies')">🎥 أرشيف الأفلام</span>
           <span class="shortcut-pill" onclick="browserNavigateTo('https://wikipedia.org')">📖 ويكيبيديا</span>
         </div>
 
-        <!-- منطقة عرض صفحات الويب التفاعلية -->
-        <div class="browser-viewport-container" id="browserContainer">
-          <!-- سيتم إدراج <webview> إذا كنا في Electron أو <iframe> مع البروكسي إذا كنا في المتصفح -->
-          <iframe id="browserFrame" src="/api/proxy?url=https://www.google.com" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads allow-modals"></iframe>
+        <!-- مساحة عرض شاشة المتصفح الافتراضي التفاعلي -->
+        <div class="browser-viewport-container" id="browserContainer" tabindex="0">
+          <canvas id="browserCanvas" width="1280" height="720"></canvas>
+          <div id="browserLoadingOverlay" class="browser-loading">
+            <div class="spinner"></div>
+            <span>جاري تشغيل المتصفح الافتراضي (Google Chrome)...</span>
+          </div>
         </div>
       </div>
 
-      <!-- 2. واجهة مشغل الفيديو المباشر (Direct Player Mode) -->
+      <!-- 2. واجهة مشغل الفيديو المباشر -->
       <div class="player-view" id="playerView">
         <div class="player-toolbar">
           <input type="text" id="videoUrlInput" placeholder="أدخل رابط ملف فيديو مباشر (MP4 / WebM / M3U8)..." value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">
@@ -135,7 +138,7 @@
     <div class="modal-box">
       <div class="modal-logo">🍿</div>
       <h2 style="font-size:20px; font-weight:800;">سهرة بلس | متصفح السينما المفتوح</h2>
-      <p style="font-size:13px; color:var(--text-secondary); line-height:1.5;">ادخل أي موقع في العالم بحرية وتصفحه مع أصدقائك بالتزامن اللحظي تماماً مثل Hyperbeam.</p>
+      <p style="font-size:13px; color:var(--text-secondary); line-height:1.5;">متصفح حقيقي متزامن ومفتوح لجميع مواقع الإنترنت والأفلام واليوتيوب بنمط Hyperbeam.</p>
 
       <div style="display:flex; flex-direction:column; gap:12px; text-align:right;">
         <div>

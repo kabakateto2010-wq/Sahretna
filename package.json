@@ -20,7 +20,9 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "socket.io": "^4.7.5"
+    "puppeteer-core": "^24.43.1",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
     "electron": "^41.7.1"

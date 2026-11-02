@@ -3,84 +3,11 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const virtualBrowser = require('./virtualBrowser');
 
 const app = express();
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
-
-// =========================================================================
-// 🌐 خادم وسيط ذكي (Reverse Proxy) لكسر قيود المواقع وفتحها داخل المتصفح
-// يقوم بحذف ترويسات X-Frame-Options و CSP للسماح بفتح المواقع داخل القاعة
-// =========================================================================
-app.get('/api/proxy', async (req, res) => {
-  const targetUrl = req.query.url;
-  if (!targetUrl) {
-    return res.status(400).send('رابط غير صالح');
-  }
-
-  try {
-    let cleanUrl = targetUrl;
-    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
-      cleanUrl = 'https://' + cleanUrl;
-    }
-
-    const response = await fetch(cleanUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8'
-      }
-    });
-
-    const contentType = response.headers.get('content-type') || '';
-
-    // إزالة ترويسات الحماية التي تمنع التضمين
-    res.removeHeader('X-Frame-Options');
-    res.removeHeader('Content-Security-Policy');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-
-    if (contentType.includes('text/html')) {
-      let html = await response.text();
-
-      // حقن <base> حتى تعمل الروابط والصور والملفات التابعة للموقع الأصلي
-      const baseTag = `<base href="${cleanUrl}">`;
-
-      // حقن سكريبت الجسر لمزامنة الفيديو في الموقع تلقائياً
-      const bridgeScript = `
-        <script>
-          window.addEventListener('load', () => {
-            console.log('[Hyperbeam Cinema Bridge] تم ربط الموقع بنجاح');
-            setInterval(() => {
-              const video = document.querySelector('video');
-              if (video && !video.__cinemaAttached) {
-                video.__cinemaAttached = true;
-                video.addEventListener('play', () => window.parent.postMessage({ type: 'SYNC_PLAY', time: video.currentTime }, '*'));
-                video.addEventListener('pause', () => window.parent.postMessage({ type: 'SYNC_PAUSE', time: video.currentTime }, '*'));
-                video.addEventListener('seeked', () => window.parent.postMessage({ type: 'SYNC_SEEK', time: video.currentTime }, '*'));
-              }
-            }, 1000);
-          });
-        </script>
-      `;
-
-      if (html.includes('<head>')) {
-        html = html.replace('<head>', `<head>${baseTag}${bridgeScript}`);
-      } else {
-        html = baseTag + bridgeScript + html;
-      }
-
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.send(html);
-    } else {
-      const buffer = await response.arrayBuffer();
-      res.setHeader('Content-Type', contentType);
-      return res.send(Buffer.from(buffer));
-    }
-  } catch (err) {
-    console.error('Proxy Error:', err.message);
-    res.status(500).send(`تعذر تحميل الموقع عبر الوسيط: ${err.message}`);
-  }
-});
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -90,6 +17,7 @@ const io = new Server(server, {
   }
 });
 
+// تخزين حالات قاعات السينما في الذاكرة
 const rooms = {};
 
 function getEstimatedCurrentTime(videoState) {
@@ -102,7 +30,7 @@ function getEstimatedCurrentTime(videoState) {
 
 io.on('connection', (socket) => {
   // 1. الانضمام إلى قاعة سينما
-  socket.on('join-room', ({ roomId, username, avatar }) => {
+  socket.on('join-room', async ({ roomId, username, avatar }) => {
     const cleanRoomId = (roomId || 'cinema-main').trim().toLowerCase();
     const cleanName = (username || 'صديق السينما').trim().substring(0, 25);
     const userAvatar = avatar || '🍿';
@@ -172,10 +100,17 @@ io.on('connection', (socket) => {
     };
     room.chatHistory.push(welcomeMsg);
     io.to(cleanRoomId).emit('new-message', welcomeMsg);
+
+    // تشغيل المتصفح الافتراضي السحابي للقاعة فوراً إذا لم يكن يعمل
+    try {
+      await virtualBrowser.getOrLaunchBrowser(cleanRoomId, io);
+    } catch (err) {
+      console.error('[Server] خطأ في تشغيل المتصفح الافتراضي:', err.message);
+    }
   });
 
-  // 2. مزامنة تنقل المتصفح المفتوح (Browser Navigation Sync)
-  socket.on('browser-navigate', ({ roomId, url }) => {
+  // 2. أحداث المتصفح الافتراضي (Virtual Browser Events)
+  socket.on('browser-navigate', async ({ roomId, url }) => {
     const room = rooms[roomId];
     if (!room) return;
 
@@ -185,12 +120,33 @@ io.on('connection', (socket) => {
     }
 
     room.browserUrl = url;
-    room.activeMode = 'browser';
+    await virtualBrowser.navigate(roomId, url, io);
+  });
 
-    socket.to(roomId).emit('sync-browser-navigate', {
-      url: url,
-      by: socket.username
-    });
+  socket.on('browser-back', async ({ roomId }) => {
+    await virtualBrowser.goBack(roomId, io);
+  });
+
+  socket.on('browser-forward', async ({ roomId }) => {
+    await virtualBrowser.goForward(roomId, io);
+  });
+
+  socket.on('browser-reload', async ({ roomId }) => {
+    await virtualBrowser.reload(roomId, io);
+  });
+
+  socket.on('browser-mouse', async (data) => {
+    const { roomId, event } = data;
+    const room = rooms[roomId];
+    if (room && room.hostOnlyControl && socket.id !== room.hostId) return;
+    await virtualBrowser.dispatchMouse(roomId, event);
+  });
+
+  socket.on('browser-key', async (data) => {
+    const { roomId, event } = data;
+    const room = rooms[roomId];
+    if (room && room.hostOnlyControl && socket.id !== room.hostId) return;
+    await virtualBrowser.dispatchKey(roomId, event);
   });
 
   // 3. تبديل وضع العرض
@@ -201,16 +157,14 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('sync-mode-switch', { mode });
   });
 
-  // 4. استقبال أوامر التحكم في الفيديو ومزامنتها لحظياً
+  // 4. أوامر مشغل الفيديو المباشر
   socket.on('video-action', (data) => {
     const { roomId, action, time, url, sourceType, fileName, rate } = data;
     const room = rooms[roomId];
     if (!room) return;
 
     if (room.hostOnlyControl && socket.id !== room.hostId) {
-      socket.emit('action-denied', {
-        reason: 'التحكم مقصور على منشئ القاعة (المضيف) حالياً.'
-      });
+      socket.emit('action-denied', { reason: 'التحكم مقصور على المضيف حالياً.' });
       return;
     }
 
@@ -242,7 +196,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // 5. قفل / فتح التحكم للمضيف فقط
+  // 5. قفل / فتح التحكم للمضيف
   socket.on('toggle-host-control', ({ roomId }) => {
     const room = rooms[roomId];
     if (!room || room.hostId !== socket.id) return;
@@ -265,7 +219,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('new-message', msg);
   });
 
-  // 6. المحادثة اللحظية
+  // 6. الدردشة
   socket.on('chat-message', ({ roomId, message }) => {
     const room = rooms[roomId];
     if (!room || !message || !message.trim()) return;
@@ -281,11 +235,10 @@ io.on('connection', (socket) => {
 
     room.chatHistory.push(chatMsg);
     if (room.chatHistory.length > 100) room.chatHistory.shift();
-
     io.to(roomId).emit('new-message', chatMsg);
   });
 
-  // 7. التفاعلات التعبيرية الحية
+  // 7. التفاعلات الحية
   socket.on('send-reaction', ({ roomId, emoji }) => {
     if (!rooms[roomId]) return;
     io.to(roomId).emit('floating-reaction', {
@@ -295,17 +248,8 @@ io.on('connection', (socket) => {
     });
   });
 
-  // 8. إشارات WebRTC للبث المباشر
-  socket.on('webrtc-signal', ({ roomId, targetId, signal, type }) => {
-    if (targetId) {
-      io.to(targetId).emit('webrtc-signal', { senderId: socket.id, signal, type });
-    } else {
-      socket.to(roomId).emit('webrtc-signal', { senderId: socket.id, signal, type });
-    }
-  });
-
-  // 9. معالجة مغادرة المستخدم
-  socket.on('disconnect', () => {
+  // 8. مغادرة المستخدم
+  socket.on('disconnect', async () => {
     const { roomId } = socket;
     if (!roomId || !rooms[roomId]) return;
 
@@ -325,8 +269,10 @@ io.on('connection', (socket) => {
     }
 
     io.to(roomId).emit('user-list', room.users);
+
     if (room.users.length === 0) {
       delete rooms[roomId];
+      await virtualBrowser.closeBrowser(roomId);
     }
   });
 });

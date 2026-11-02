@@ -154,12 +154,12 @@ body {
   overflow: hidden;
 }
 
-/* ================== Virtual Browser (Hyperbeam Mode) ================== */
+/* ================== Virtual Browser (Hyperbeam Canvas Mode) ================== */
 .browser-view {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #121217;
+  background: #000;
   overflow: hidden;
 }
 
@@ -240,15 +240,56 @@ body {
 .browser-viewport-container {
   flex: 1;
   position: relative;
-  background: #0a0a0d;
+  background: #050508;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
+  outline: none;
 }
 
-#browserFrame, #browserWebview {
+#browserCanvas {
+  max-width: 100%;
+  max-height: 100%;
   width: 100%;
   height: 100%;
-  border: none;
-  background: #fff;
+  object-fit: contain;
+  background: #000;
+  cursor: default;
+}
+
+.browser-loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 14, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 700;
+  z-index: 20;
+  transition: opacity 0.3s ease;
+}
+
+.browser-loading.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(229, 9, 20, 0.2);
+  border-top-color: var(--netflix-red);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ================== Direct Video Player Mode ================== */
