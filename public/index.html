@@ -18,7 +18,7 @@
     <!-- أزرار التبديل بين وضع المتصفح الافتراضي ومشغل الفيديو -->
     <div class="mode-switcher">
       <button class="mode-btn active" id="btnModeBrowser" onclick="switchMainMode('browser')">
-        🌐 المتصفح الافتراضي (أي موقع في العالم)
+        🌐 المتصفح المفتوح (تصفح أي موقع)
       </button>
       <button class="mode-btn" id="btnModePlayer" onclick="switchMainMode('player')">
         🎬 مشغل الفيديو المباشر
@@ -50,9 +50,9 @@
           <button class="nav-ctrl-btn" onclick="browserGoBack()" title="للخلف">◀</button>
           <button class="nav-ctrl-btn" onclick="browserGoForward()" title="للأمام">▶</button>
           <button class="nav-ctrl-btn" onclick="browserReload()" title="تحديث">🔄</button>
-          <button class="nav-ctrl-btn" onclick="browserNavigateTo('https://www.google.com')" title="الصفحة الرئيسية">🏠</button>
+          <button class="nav-ctrl-btn" onclick="browserNavigateTo('https://duckduckgo.com')" title="الصفحة الرئيسية">🏠</button>
 
-          <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="اكتب أي رابط أو ابحث في جوجل (مثال: https://www.youtube.com أو موقع أفلام)..." value="https://www.google.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
+          <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="اكتب اسم الفيلم أو أي رابط في العالم (مثال: https://www.youtube.com أو اسم الموقع)..." value="https://duckduckgo.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
 
           <button class="btn-primary" onclick="applyBrowserUrl()">تصفح 🚀</button>
           <button class="nav-ctrl-btn" onclick="startScreenShare()" title="مشاركة الشاشة الحية مع الصوت">🖥️</button>
@@ -61,7 +61,7 @@
         <!-- أزرار الاختصارات السريعة -->
         <div class="shortcuts-bar">
           <span style="font-size: 11px; color: var(--text-muted);">اختصارات سريعة:</span>
-          <span class="shortcut-pill" onclick="browserNavigateTo('https://www.google.com')">🔍 بحث جوجل</span>
+          <span class="shortcut-pill" onclick="browserNavigateTo('https://duckduckgo.com')">🔍 بحث عام (بدون كابتشا)</span>
           <span class="shortcut-pill" onclick="browserNavigateTo('https://www.youtube.com')">🎬 يوتيوب</span>
           <span class="shortcut-pill" onclick="browserNavigateTo('https://www.dailymotion.com')">🍿 ديلي موشن</span>
           <span class="shortcut-pill" onclick="browserNavigateTo('https://archive.org/details/movies')">🎥 أرشيف الأفلام</span>
@@ -73,7 +73,7 @@
           <canvas id="browserCanvas" width="1280" height="720"></canvas>
           <div id="browserLoadingOverlay" class="browser-loading">
             <div class="spinner"></div>
-            <span>جاري تشغيل المتصفح الافتراضي (Google Chrome)...</span>
+            <span>جاري تشغيل المتصفح الافتراضي...</span>
           </div>
         </div>
       </div>

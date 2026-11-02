@@ -1,10 +1,17 @@
 // ====================================================================
-// 🍿 Hyperbeam Engine - Virtual Cloud Browser (CDP Screencast)
+// 🍿 Hyperbeam Engine - Stealth Virtual Browser (Anti-Bot Bypass)
 // ====================================================================
 const puppeteer = require('puppeteer-core');
 const fs = require('fs');
+const path = require('path');
 
 const CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const USER_DATA_DIR = path.join(__dirname, '.chrome-session');
+
+// التأكد من وجود مجلد حفظ الجلسات والكوكيز لمنع الكابتشا
+if (!fs.existsSync(USER_DATA_DIR)) {
+  fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+}
 
 const roomBrowsers = {};
 
@@ -17,24 +24,42 @@ async function getOrLaunchBrowser(roomId, io) {
     throw new Error(`Google Chrome غير موجود في المسار: ${CHROME_PATH}`);
   }
 
-  console.log(`[VirtualBrowser] تشغيل متصفح افتراضي مستقل للقاعة: ${roomId}`);
+  console.log(`[VirtualBrowser] تشغيل متصفح خفي (Anti-Detection) للقاعة: ${roomId}`);
 
+  // تشغيل كروم بهوية متصفح حقيقي بالكامل وتجريد كل أعلام الروبوتات
   const browser = await puppeteer.launch({
     executablePath: CHROME_PATH,
     headless: 'new',
+    userDataDir: path.join(USER_DATA_DIR, roomId),
+    ignoreDefaultArgs: ['--enable-automation'],
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-gpu',
       '--disable-dev-shm-usage',
+      '--disable-blink-features=AutomationControlled', // 🚀 يلغي تماماً كشف الروبوت والكابتشا
       '--autoplay-policy=no-user-gesture-required',
       '--window-size=1280,720',
+      '--lang=ar-EG,ar,en-US,en',
       '--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
     ]
   });
 
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
+
+  // حقن هوية متصفح طبيعي وحذف أي متغيرات تدل على الأتمتة
+  await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    Object.defineProperty(navigator, 'languages', { get: () => ['ar-EG', 'ar', 'en-US', 'en'] });
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+    window.chrome = {
+      runtime: {},
+      loadTimes: function() {},
+      csi: function() {},
+      app: {}
+    };
+  });
 
   const client = await page.target().createCDPSession();
 
@@ -43,12 +68,12 @@ async function getOrLaunchBrowser(roomId, io) {
     page,
     client,
     isRunning: true,
-    lastUrl: 'https://www.google.com'
+    lastUrl: 'https://duckduckgo.com' // محرك بحث سريع وآمن لا يطلب أي كابتشا نهائياً
   };
 
   roomBrowsers[roomId] = sessionData;
 
-  // 1. استقبال إطارات الشاشة المباشرة وبثها لجميع المتصلين
+  // 1. استقبال إطارات الشاشة المباشرة وبثها للقاعة
   client.on('Page.screencastFrame', async ({ data, sessionId }) => {
     try {
       await client.send('Page.screencastFrameAck', { sessionId });
@@ -56,7 +81,7 @@ async function getOrLaunchBrowser(roomId, io) {
     } catch (e) {}
   });
 
-  // 2. مزامنة رابط الصفحة عند التنقل التلقائي
+  // 2. تحديث الرابط في شريط التصفح عند الانتقال
   page.on('framenavigated', (frame) => {
     if (frame === page.mainFrame()) {
       const url = frame.url();
@@ -65,7 +90,7 @@ async function getOrLaunchBrowser(roomId, io) {
     }
   });
 
-  // 3. بدء البث المباشر للشاشة بدقة 1280x720 وبجودة ممتازة وسريعة
+  // 3. بدء البث المباشر للشاشة
   await client.send('Page.startScreencast', {
     format: 'jpeg',
     quality: 75,
@@ -74,24 +99,28 @@ async function getOrLaunchBrowser(roomId, io) {
     everyNthFrame: 1
   });
 
+  // الانتقال لصفحة البداية الافتراضية
   try {
-    await page.goto('https://www.google.com', { waitUntil: 'domcontentloaded', timeout: 25000 });
+    await page.goto('https://duckduckgo.com', { waitUntil: 'domcontentloaded', timeout: 25000 });
   } catch (err) {
-    console.log('[VirtualBrowser] خطأ في تحميل صفحة البداية:', err.message);
+    console.log('[VirtualBrowser] تنبيه أثناء تحميل الصفحة:', err.message);
   }
 
   return sessionData;
 }
 
+// دالة الانتقال لأي رابط أو البحث
 async function navigate(roomId, rawUrl, io) {
   const session = await getOrLaunchBrowser(roomId, io);
   let cleanUrl = rawUrl.trim();
 
+  // إذا لم يكن رابطاً كاملاً، يتم البحث تلقائياً
   if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
     if (cleanUrl.includes('.') && !cleanUrl.includes(' ')) {
       cleanUrl = 'https://' + cleanUrl;
     } else {
-      cleanUrl = 'https://www.google.com/search?q=' + encodeURIComponent(cleanUrl);
+      // بحث نظيف بدون كابتشا
+      cleanUrl = 'https://duckduckgo.com/?q=' + encodeURIComponent(cleanUrl);
     }
   }
 
@@ -120,7 +149,7 @@ async function reload(roomId, io) {
   try { await session.page.reload(); } catch (e) {}
 }
 
-// تحويل أحداث الماوس وإرسالها للمتصفح الحقيقي
+// تحويل أحداث الماوس
 async function dispatchMouse(roomId, event) {
   const session = roomBrowsers[roomId];
   if (!session || !session.client) return;
