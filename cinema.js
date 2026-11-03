@@ -46,7 +46,7 @@ let currentUsername = '';
 let isHost = false;
 let hostOnlyControl = false;
 let isSyncing = false;
-let currentActiveMode = 'player';
+let currentActiveMode = 'browser';
 
 // عناصر واجهة المستخدم
 const welcomeModal = document.getElementById('welcomeModal');

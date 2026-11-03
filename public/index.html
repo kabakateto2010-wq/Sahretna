@@ -21,33 +21,34 @@
 </head>
 <body>
 
-  <!-- شريط الملاحة العلوي المنظم -->
+  <!-- شريط الملاحة العلوي -->
   <header class="navbar">
     <div class="brand">
       <div class="brand-logo">🍿 سهرة بلس</div>
+      <div class="brand-badge">HYPERBEAM ENGINE</div>
       <div class="connection-status" title="حالة الاتصال بالسيرفر">
         <span class="status-dot"></span>
         <span class="status-text">مباشر</span>
       </div>
     </div>
 
-    <!-- أزرار التبديل المنظمة بين مشغل الفيديو والبث -->
+    <!-- أزرار التبديل بين وضع المتصفح الافتراضي ومشغل الفيديو -->
     <div class="mode-switcher">
-      <button class="mode-btn active" id="btnModePlayer" onclick="switchMainMode('player')">
-        🎬 سينما الأفلام والمسلسلات
+      <button class="mode-btn active" id="btnModeBrowser" onclick="switchMainMode('browser')">
+        🌐 المتصفح المفتوح (تصفح أي موقع)
       </button>
-      <button class="mode-btn" id="btnModeBrowser" onclick="switchMainMode('browser')">
-        🌐 بث الشاشة والمواقع
+      <button class="mode-btn" id="btnModePlayer" onclick="switchMainMode('player')">
+        🎬 مشغل الفيديو المباشر
       </button>
     </div>
 
-    <!-- معلومات القاعة والتحكم المنظمة -->
+    <!-- معلومات القاعة والتحكم -->
     <div class="header-actions">
       <!-- كبسولة الروم الصوتي السريعة -->
       <div class="voice-header-capsule" id="voiceHeaderCapsule">
         <button class="voice-join-btn" id="voiceJoinBtn" onclick="toggleVoiceRoom()" title="الانضمام إلى الروم الصوتي المباشر للتحدث مع الأصدقاء">
           <span class="voice-pulse-dot" id="voicePulseDot"></span>
-          <span id="voiceJoinBtnText">🎙️ الصوت</span>
+          <span id="voiceJoinBtnText">🎙️ الروم الصوتي</span>
         </button>
         <div class="voice-active-controls hidden" id="voiceActiveControls">
           <button class="voice-ctrl-icon-btn" id="voiceMuteBtn" onclick="toggleVoiceMute()" title="كتم / تشغيل المايك (Mute)">🎙️</button>
@@ -56,52 +57,37 @@
         </div>
       </div>
 
-      <!-- زر نسخ ومشاركة رابط السهرة المباشر مع رمز القاعة -->
+      <div class="room-badge" id="roomCodeBadge" onclick="copyInviteLink()" title="انقر لنسخ رابط السهرة">
+        <span>🍿</span>
+        <span>قاعة: ...</span>
+      </div>
+
+      <!-- زر نسخ ومشاركة رابط السهرة المباشر -->
       <button class="invite-share-btn" id="btnShareInvite" onclick="copyInviteLink()" title="نسخ رابط السهرة ومشاركته مع الأصدقاء">
-        <span>🔗 دعوة</span>
-        <span class="room-mini-badge" id="roomCodeBadge">قاعة: ...</span>
+        🔗 دعوة الأصدقاء
+      </button>
+
+      <!-- اختيار الحد الأقصى للحضور للمضيف لضمان سرعة الإنترنت -->
+      <div class="host-limit-control" id="hostLimitControl" title="تحديد أقصى عدد للمشاهدين لضمان سلاسة البث">
+        <span class="limit-label">👥 الحد:</span>
+        <select id="selectMaxUsers" onchange="changeRoomLimit(this.value)">
+          <option value="2">2 أفراد</option>
+          <option value="3">3 أفراد</option>
+          <option value="4">4 أفراد</option>
+          <option value="5" selected>5 أفراد (مثالي)</option>
+          <option value="8">8 أفراد</option>
+          <option value="12">12 فرد</option>
+        </select>
+      </div>
+
+      <button class="control-toggle" id="hostControlBtn" onclick="toggleHostLock()">
+        🔓 التحكم: للجميع
       </button>
 
       <!-- زر مكتبة الأفلام المفضلة -->
       <button class="library-btn" id="libraryBtn" onclick="toggleFavoritesModal()" title="مكتبة أفلامي المفضلة">
         ⭐ مكتبتي (<span id="favCountBadge">0</span>)
       </button>
-
-      <!-- قائمة إعدادات القاعة المنسدلة (قفل التحكم + حد الحضور بدون زحمة) -->
-      <div class="dropdown-wrapper" id="roomSettingsWrapper">
-        <button class="header-icon-btn" id="btnToggleRoomSettings" onclick="toggleRoomSettingsMenu(event)" title="إعدادات القاعة">
-          ⚙️
-        </button>
-        <div class="dropdown-popover hidden" id="roomSettingsPopover">
-          <div class="popover-header">
-            <span>⚙️ إعدادات القاعة</span>
-          </div>
-          <div class="popover-item">
-            <label class="popover-label">قفل التحكم:</label>
-            <button class="control-toggle" id="hostControlBtn" onclick="toggleHostLock()">
-              🔓 التحكم: للجميع
-            </button>
-          </div>
-          <div class="popover-item" id="hostLimitControl" title="تحديد أقصى عدد للمشاهدين">
-            <label class="popover-label">حد الحضور:</label>
-            <select id="selectMaxUsers" class="popover-select" onchange="changeRoomLimit(this.value)">
-              <option value="2">2 أفراد</option>
-              <option value="3">3 أفراد</option>
-              <option value="4">4 أفراد</option>
-              <option value="5" selected>5 أفراد (مثالي)</option>
-              <option value="8">8 أفراد</option>
-              <option value="12">12 فرد</option>
-            </select>
-          </div>
-          <div class="popover-item" style="flex-direction:column; align-items:flex-start; gap:6px;">
-            <label class="popover-label">🌐 سيرفر السهرة (Vercel Backend):</label>
-            <div style="display:flex; width:100%; gap:4px;">
-              <input type="text" id="customServerUrlInput" class="popover-select" style="width:100%; font-size:11px;" placeholder="رابط السيرفر المباشر...">
-              <button class="btn-primary" style="padding:4px 8px; font-size:11px; white-space:nowrap;" onclick="applyCustomServerUrl()">ربط ⚡</button>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <button class="mobile-chat-toggle" id="mobileChatToggle" onclick="toggleMobileChat()" title="فتح / إغلاق القائمة الجانبية">
         💬 المحادثة
@@ -115,63 +101,49 @@
     <section class="main-stage">
 
       <!-- 1. واجهة المتصفح الافتراضي الحقيقي (Hyperbeam Canvas Engine) -->
-      <div class="browser-view" id="browserView" style="display:none;">
-        <!-- شريط أدوات التصفح المنظم والمريح للعين -->
+      <div class="browser-view" id="browserView">
+        <!-- شريط أدوات التصفح -->
         <div class="browser-nav-bar">
-          <div class="nav-btn-group">
-            <button class="nav-ctrl-btn" onclick="browserGoBack()" title="للخلف">◀</button>
-            <button class="nav-ctrl-btn" onclick="browserGoForward()" title="للأمام">▶</button>
-            <button class="nav-ctrl-btn" onclick="browserReload()" title="تحديث">🔄</button>
-            <button class="nav-ctrl-btn" onclick="browserNavigateTo('https://www.google.com')" title="الصفحة الرئيسية (Google)">🏠</button>
+          <button class="nav-ctrl-btn" onclick="browserGoBack()" title="للخلف">◀</button>
+          <button class="nav-ctrl-btn" onclick="browserGoForward()" title="للأمام">▶</button>
+          <button class="nav-ctrl-btn" onclick="browserReload()" title="تحديث">🔄</button>
+          <button class="nav-ctrl-btn" onclick="browserNavigateTo('https://www.google.com')" title="الصفحة الرئيسية (Google)">🏠</button>
+
+          <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="ابحث في Google أو اكتب أي رابط (مثال: egydead أو youtube)..." value="https://www.google.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
+
+          <button class="btn-primary" onclick="applyBrowserUrl()">تصفح 🚀</button>
+
+          <!-- زر التحكم في جودة البث لمنع البكسلة والتهنيج -->
+          <div class="quality-selector-box" title="التحكم في جودة البث وسرعته">
+            <label for="browserQualitySelect" class="quality-label">الجودة:</label>
+            <select id="browserQualitySelect" class="quality-select" onchange="changeBrowserQuality(this.value)">
+              <option value="ultra">💎 فائقة (1080p - نقاء كريستال)</option>
+              <option value="high" selected>✨ عالية (1080p - سريعة ونقية)</option>
+              <option value="medium">⚡ متوسطة (720p - سلسة)</option>
+              <option value="fast">🚀 خفيفة (نت ضعيف - بدون تقطيع)</option>
+            </select>
           </div>
 
-          <div class="browser-omnibar">
-            <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="ابحث في Google أو اكتب أي رابط (مثال: egydead أو youtube)..." value="https://www.google.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
-            <button class="omnibar-submit-btn" onclick="applyBrowserUrl()">تصفح 🚀</button>
+          <!-- التحكم في إضاءة السينما المحيطية بخطوط رأسية (Vertical Ambient Light) -->
+          <div class="ambient-control-box" title="التحكم في شدة إضاءة الخطوط الرأسية الخلفية">
+            <button class="ambient-toggle-btn" id="ambientToggleBtn" onclick="toggleAmbientLight()" title="تشغيل / إيقاف الإضاءة الخلفية">💡</button>
+            <label for="ambientBrightnessSlider" class="ambient-ctrl-label">الإضاءة:</label>
+            <input type="range" id="ambientBrightnessSlider" class="ambient-slider" min="0" max="100" value="70" oninput="setAmbientBrightness(this.value)">
+            <span id="ambientBrightnessValue" class="ambient-val-badge">70%</span>
           </div>
 
-          <!-- قائمة ضبط العرض والشاشة المنسدلة (جودة + إضاءة + شفافية في زر أنيق واحد) -->
-          <div class="dropdown-wrapper" id="displaySettingsWrapper">
-            <button class="nav-ctrl-btn display-tune-btn" id="btnToggleDisplaySettings" onclick="toggleDisplaySettingsMenu(event)" title="ضبط إضاءة السينما والجودة">
-              🎛️ ضبط العرض
-            </button>
-            <div class="dropdown-popover display-popover hidden" id="displaySettingsPopover">
-              <div class="popover-header">
-                <span>🎛️ جودة وإضاءة العرض</span>
-              </div>
-              <div class="popover-item">
-                <span class="popover-label">جودة البث:</span>
-                <select id="browserQualitySelect" class="popover-select" onchange="changeBrowserQuality(this.value)">
-                  <option value="ultra">💎 فائقة (1080p نقية)</option>
-                  <option value="high" selected>✨ عالية (1080p سريعة)</option>
-                  <option value="medium">⚡ متوسطة (سلسة)</option>
-                  <option value="fast">🚀 خفيفة (نت ضعيف)</option>
-                </select>
-              </div>
-              <div class="popover-item">
-                <span class="popover-label">الإضاءة الخلفية:</span>
-                <div class="popover-slider-row">
-                  <button class="ambient-toggle-btn" id="ambientToggleBtn" onclick="toggleAmbientLight()" title="تشغيل / إيقاف الإضاءة الخلفية">💡</button>
-                  <input type="range" id="ambientBrightnessSlider" class="ambient-slider" min="0" max="100" value="70" oninput="setAmbientBrightness(this.value)">
-                  <span id="ambientBrightnessValue" class="ambient-val-badge">70%</span>
-                </div>
-              </div>
-              <div class="popover-item">
-                <span class="popover-label">شفافية الشاشة:</span>
-                <div class="popover-slider-row">
-                  <span class="ctrl-icon">🪟</span>
-                  <input type="range" id="canvasOpacitySlider" class="ambient-slider" min="30" max="100" value="100" oninput="setCanvasOpacity(this.value)">
-                  <span id="canvasOpacityValue" class="ambient-val-badge">100%</span>
-                </div>
-              </div>
-              <div class="popover-item">
-                <span class="popover-label">الوضع الليلي:</span>
-                <button class="nav-ctrl-btn dark-mode-toggle-btn" id="cinemaDarkModeBtn" onclick="toggleCinemaDarkMode()" title="تحويل المواقع البيضاء للوضع الداكن">🌙 تفعيل</button>
-              </div>
-            </div>
+          <!-- التحكم في شفافية شاشة المتصفح (Browser Opacity) لمنع بياض المواقع وإظهار ما خلفها -->
+          <div class="opacity-control-box" title="التحكم في شفافية شاشة المتصفح لمنع بياض المواقع وإظهار ما خلفها">
+            <span class="ctrl-icon">🪟</span>
+            <label for="canvasOpacitySlider" class="ambient-ctrl-label">الشفافية:</label>
+            <input type="range" id="canvasOpacitySlider" class="ambient-slider" min="30" max="100" value="100" oninput="setCanvasOpacity(this.value)">
+            <span id="canvasOpacityValue" class="ambient-val-badge">100%</span>
           </div>
 
-          <button class="nav-ctrl-btn" onclick="startScreenShare()" title="مشاركة الشاشة الحية مع الصوت">🖥️ بث</button>
+          <!-- زر الوضع الليلي السينمائي لتحويل الصفحات البيضاء الفاقعة إلى داكنة مريحة للعين -->
+          <button class="nav-ctrl-btn dark-mode-toggle-btn" id="cinemaDarkModeBtn" onclick="toggleCinemaDarkMode()" title="تحويل المواقع البيضاء إلى الوضع الليلي الداكن (Dark Mode)">🌙</button>
+
+          <button class="nav-ctrl-btn" onclick="startScreenShare()" title="مشاركة الشاشة الحية مع الصوت">🖥️</button>
           <button class="nav-ctrl-btn fav-nav-btn" onclick="addCurrentToFavorites()" title="حفظ الفيلم الحالي في المفضلة">❤️</button>
         </div>
 
@@ -185,7 +157,7 @@
             <!-- يتم تعبئة المواقع المحفوظة تلقائياً من الذاكرة -->
           </div>
           <button class="quick-add-btn" onclick="addCurrentToQuickAccess()" title="حفظ الموقع الحالي في شريط الوصول السريع">
-            <span>➕</span> حفظ الحالي
+            <span>➕</span> حفظ الموقع الحالي
           </button>
         </div>
 
