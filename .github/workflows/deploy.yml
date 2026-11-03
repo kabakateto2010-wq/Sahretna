@@ -11,10 +11,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          lfs: true
+          fetch-depth: 1
       - name: Push to Hugging Face
         run: |
           git config --global user.name "Sahretna-Bot"
           git config --global user.email "bot@sahretna.com"
-          git push -f https://Sahretna2030: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@huggingface.co/spaces/Sahretna2030/sahretna main
+          git checkout --orphan hf-clean
+          rm -rf .browser-data .chrome-session
+          git reset
+          git add -A
+          git commit -m "deploy: update Sahretna Cinema to Hugging Face Spaces"
+          git push -f https://Sahretna2030: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@huggingface.co/spaces/Sahretna2030/sahretna hf-clean:main
