@@ -84,6 +84,7 @@ io.on('connection', (socket) => {
         },
         voiceUsers: {},
         activeSubtitle: null,
+        maxUsers: 5,
         users: [],
         chatHistory: []
       };
@@ -91,8 +92,18 @@ io.on('connection', (socket) => {
 
     const room = rooms[cleanRoomId];
     if (!room.voiceUsers) room.voiceUsers = {};
+    if (!room.maxUsers) room.maxUsers = 5;
     const isHost = room.hostId === socket.id || room.users.length === 0;
     if (isHost) room.hostId = socket.id;
+
+    // التحقق من الحد الأقصى للمشاهدين في القاعة
+    if (!isHost && room.users.length >= room.maxUsers) {
+      socket.emit('room-capacity-full', {
+        maxUsers: room.maxUsers,
+        message: `⚠️ عذراً، اكتمل العدد الأقصى المسموح به للمشاهدة في هذه القاعة (${room.maxUsers} أصدقاء).`
+      });
+      return;
+    }
 
     const userData = {
       id: socket.id,
@@ -117,6 +128,7 @@ io.on('connection', (socket) => {
       },
       voiceUsers: Object.values(room.voiceUsers),
       activeSubtitle: room.activeSubtitle,
+      maxUsers: room.maxUsers || 5,
       users: room.users,
       chatHistory: room.chatHistory.slice(-50)
     };
@@ -285,6 +297,25 @@ io.on('connection', (socket) => {
       text: room.hostOnlyControl
         ? `🔒 جعل المضيف التحكم في التصفح والعرض حصرياً له.`
         : `🔓 تم فتح صلاحية التحكم في التصفح والعرض لجميع المتواجدين.`,
+      time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+    };
+    room.chatHistory.push(msg);
+    io.to(roomId).emit('new-message', msg);
+  });
+
+  // 5.1 ضبط الحد الأقصى لعدد المشاهدين في القاعة من قِبل المضيف
+  socket.on('set-max-users', ({ roomId, maxUsers }) => {
+    const room = rooms[roomId];
+    if (!room || room.hostId !== socket.id) return;
+
+    const count = Math.max(2, Math.min(25, parseInt(maxUsers, 10) || 5));
+    room.maxUsers = count;
+    io.to(roomId).emit('room-limit-updated', { maxUsers: count });
+
+    const msg = {
+      id: 'sys_' + Date.now(),
+      system: true,
+      text: `👥 حدد المضيف الحد الأقصى للحضور بـ [${count} أصدقاء] لضمان أعلى سرعة وسلاسة في البث.`,
       time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
     };
     room.chatHistory.push(msg);

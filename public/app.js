@@ -87,9 +87,34 @@ function enterCinema(isNewRoom = false) {
   });
 }
 
+function getShareableLink() {
+  const room = currentRoomId || 'cinema-main';
+  if (window.SAHRETNA_LOCAL_IP && window.SAHRETNA_LOCAL_IP !== 'localhost') {
+    return `http://${window.SAHRETNA_LOCAL_IP}:3000/?room=${room}`;
+  }
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return `${window.location.protocol}//${window.location.host}/?room=${room}`;
+  }
+  return `${window.location.origin}/?room=${room}`;
+}
+
 function copyInviteLink() {
-  navigator.clipboard.writeText(window.location.href).then(() => {
-    showToast('📋 تم نسخ رابط السهرة!');
+  const link = getShareableLink();
+  navigator.clipboard.writeText(link).then(() => {
+    showToast(`📋 تم نسخ رابط السهرة لأصدقائك:<br><span style="font-size:0.85em;color:#ff3344;direction:ltr;display:inline-block;">${link}</span>`, 4500);
+  }).catch(() => {
+    prompt('انسخ الرابط وشاركه مع أصدقائك:', link);
+  });
+}
+
+function changeRoomLimit(val) {
+  if (!isHost) {
+    showToast('⚠️ المضيف فقط يستطيع تغيير الحد الأقصى للمشاهدين.');
+    return;
+  }
+  socket.emit('set-max-users', {
+    roomId: currentRoomId,
+    maxUsers: parseInt(val, 10) || 5
   });
 }
 
@@ -102,6 +127,19 @@ function showToast(text, duration = 3000) {
 // ==============================================================
 // 2. التحكم في المتصفح الافتراضي (Canvas Stream & Inputs)
 // ==============================================================
+
+// استقبال إشعار اكتمال عدد القاعة
+socket.on('room-capacity-full', ({ maxUsers, message }) => {
+  alert(message || `⚠️ عذراً، اكتمل الحد الأقصى للمشاهدة في هذه القاعة (${maxUsers} أصدقاء).`);
+  window.location.reload();
+});
+
+// تحديث الحد الأقصى للحضور
+socket.on('room-limit-updated', ({ maxUsers }) => {
+  const select = document.getElementById('selectMaxUsers');
+  if (select) select.value = maxUsers;
+  showToast(`👥 تم تحديث الحد الأقصى للحضور: ${maxUsers} أصدقاء`);
+});
 
 // استقبال إطارات البث المباشر للشاشة ورسمها بسلاسة ونقاء عالي مع حماية من تراكم الإطارات
 let isFrameRendering = false;
@@ -522,6 +560,10 @@ function toggleHostLock() {
 }
 
 function updateHostControlsUI() {
+  const limitCtrl = document.getElementById('hostLimitControl');
+  if (limitCtrl) {
+    limitCtrl.style.display = isHost ? 'flex' : 'none';
+  }
   if (hostOnlyControl) {
     hostControlBtn.classList.add('locked');
     hostControlBtn.innerHTML = `🔒 التحكم: للمضيف فقط`;
@@ -539,6 +581,11 @@ socket.on('sync-state', (state) => {
   isHost = state.isHost;
   hostOnlyControl = state.hostOnlyControl;
   updateHostControlsUI();
+
+  if (state.maxUsers) {
+    const select = document.getElementById('selectMaxUsers');
+    if (select) select.value = state.maxUsers;
+  }
 
   if (state.activeMode) {
     switchMainMode(state.activeMode);

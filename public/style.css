@@ -162,6 +162,57 @@ body {
   background: rgba(229, 9, 20, 0.22);
 }
 
+.invite-share-btn {
+  background: linear-gradient(135deg, #e50914, #b20710);
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.35);
+  transition: all 0.2s ease;
+}
+
+.invite-share-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(229, 9, 20, 0.5);
+  background: linear-gradient(135deg, #ff1a25, #c70812);
+}
+
+.host-limit-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+}
+
+.host-limit-control .limit-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.host-limit-control select {
+  background: #111;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  outline: none;
+}
+
 .control-toggle {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);

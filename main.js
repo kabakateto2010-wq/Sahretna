@@ -1,8 +1,53 @@
-const { app, BrowserWindow, session } = require('electron');
+// ====================================================================
+// 🍿 سهرة بلس - تطبيق سطح المكتب الذكي (Sahretna Desktop App)
+// ====================================================================
+const { app, BrowserWindow, session, ipcMain, shell } = require('electron');
 const path = require('path');
+const http = require('http');
+const os = require('os');
 
-function createWindow() {
-  // فك وحذف ترويسات الحماية بالكامل للسماح بتصفح أي موقع في العالم بحرية تامة
+// تحديد الآي بي المحلي لشبكة الواي فاي لمشاركته مع الأصدقاء
+function getLocalNetworkIp() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+
+// تشغيل السيرفر المدمج تلقائياً في الخلفية عند فتح البرنامج
+function startEmbeddedServer() {
+  return new Promise((resolve) => {
+    // التحقق أولاً إذا كان السيرفر يعمل بالفعل على البورت 3000
+    const checkReq = http.get('http://localhost:3000', (res) => {
+      console.log('[Sahretna App] السيرفر يعمل بالفعل على البورت 3000.');
+      resolve(true);
+    });
+
+    checkReq.on('error', () => {
+      console.log('[Sahretna App] بدء تشغيل خادم السينما المدمج تلقائياً...');
+      try {
+        require('./server');
+        // الانتظار ثانية واحدة للتأكد من استقرار تشغيل السيرفر
+        setTimeout(() => resolve(true), 1200);
+      } catch (err) {
+        console.error('[Sahretna App] خطأ في تشغيل السيرفر:', err);
+        resolve(false);
+      }
+    });
+  });
+}
+
+let mainWindow = null;
+
+async function createWindow() {
+  await startEmbeddedServer();
+
+  // إزالة قيود الحماية لتصفح أي موقع فيديو خارجي بحرية تامة داخل البرنامج
   const filter = { urls: ['*://*/*'] };
   session.defaultSession.webRequest.onHeadersReceived(filter, (details, callback) => {
     const responseHeaders = Object.assign({}, details.responseHeaders);
@@ -14,13 +59,14 @@ function createWindow() {
     callback({ cancel: false, responseHeaders });
   });
 
-  const win = new BrowserWindow({
-    width: 1360,
-    height: 850,
-    minWidth: 900,
-    minHeight: 600,
-    title: '🍿 سهرة بلس | متصفح السينما المفتوح (Hyperbeam Alternative)',
+  mainWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 960,
+    minHeight: 650,
+    title: '🍿 سهرة بلس | قاعة السينما الافتراضية والتزامن اللحظي',
     backgroundColor: '#0a0a0c',
+    icon: path.join(__dirname, 'public', 'favicon.ico'),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -30,10 +76,19 @@ function createWindow() {
     }
   });
 
-  win.loadURL('http://localhost:3000');
+  mainWindow.loadURL('http://localhost:3000');
 
-  win.on('closed', () => {
-    app.quit();
+  mainWindow.webContents.on('did-finish-load', () => {
+    const localIp = getLocalNetworkIp();
+    // إرسال عنوان الآي بي المحلي للنافذة لتمكين زر النسخ المباشر
+    mainWindow.webContents.executeJavaScript(`
+      window.SAHRETNA_LOCAL_IP = "${localIp}";
+      console.log("🍿 سهرة بلس جاهز! رابط أصدقائك في نفس الشبكة: http://${localIp}:3000");
+    `);
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
   });
 }
 
@@ -46,5 +101,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
 });

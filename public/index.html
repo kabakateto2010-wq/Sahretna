@@ -53,6 +53,24 @@
         <span>قاعة: ...</span>
       </div>
 
+      <!-- زر نسخ ومشاركة رابط السهرة المباشر -->
+      <button class="invite-share-btn" id="btnShareInvite" onclick="copyInviteLink()" title="نسخ رابط السهرة ومشاركته مع الأصدقاء">
+        🔗 دعوة الأصدقاء
+      </button>
+
+      <!-- اختيار الحد الأقصى للحضور للمضيف لضمان سرعة الإنترنت -->
+      <div class="host-limit-control" id="hostLimitControl" title="تحديد أقصى عدد للمشاهدين لضمان سلاسة البث">
+        <span class="limit-label">👥 الحد:</span>
+        <select id="selectMaxUsers" onchange="changeRoomLimit(this.value)">
+          <option value="2">2 أفراد</option>
+          <option value="3">3 أفراد</option>
+          <option value="4">4 أفراد</option>
+          <option value="5" selected>5 أفراد (مثالي)</option>
+          <option value="8">8 أفراد</option>
+          <option value="12">12 فرد</option>
+        </select>
+      </div>
+
       <button class="control-toggle" id="hostControlBtn" onclick="toggleHostLock()">
         🔓 التحكم: للجميع
       </button>
