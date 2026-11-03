@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "node server.js",
+    "postinstall": "npx puppeteer install",
     "desktop": "electron main.js"
   },
   "keywords": [

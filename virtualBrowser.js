@@ -30,6 +30,29 @@ function findChromeExecutable() {
   for (const p of candidates) {
     if (fs.existsSync(p)) return p;
   }
+
+  // البحث في مجلد الكاش المحلي للمشروع (Render / Cloud cache)
+  const localCache = path.join(__dirname, '.cache', 'puppeteer');
+  if (fs.existsSync(localCache)) {
+    try {
+      function findBinary(dir) {
+        const files = fs.readdirSync(dir);
+        for (const file of files) {
+          const full = path.join(dir, file);
+          const stat = fs.statSync(full);
+          if (stat.isDirectory()) {
+            const found = findBinary(full);
+            if (found) return found;
+          } else if (file === 'chrome' || file === 'chromium') {
+            return full;
+          }
+        }
+        return null;
+      }
+      const found = findBinary(localCache);
+      if (found) return found;
+    } catch (e) {}
+  }
   return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 }
 
