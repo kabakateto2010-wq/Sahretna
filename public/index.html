@@ -112,7 +112,7 @@
     <section class="main-stage">
 
       <!-- 1. واجهة المتصفح الافتراضي الحقيقي (Hyperbeam Canvas Engine) -->
-      <div class="browser-view" id="browserView">
+      <div class="browser-view" id="browserView" style="display:flex;">
         <!-- شريط أدوات التصفح -->
         <div class="browser-nav-bar">
           <button class="nav-ctrl-btn" onclick="browserGoBack()" title="للخلف">◀</button>
@@ -264,7 +264,7 @@
       </div>
 
       <!-- 2. واجهة مشغل الفيديو المباشر -->
-      <div class="player-view" id="playerView" style="display:flex;">
+      <div class="player-view" id="playerView" style="display:none;">
         <div class="player-toolbar">
           <input type="text" id="videoUrlInput" placeholder="أدخل رابط ملف فيديو مباشر (MP4 / WebM / M3U8)..." value="https://vjs.zencdn.net/v/oceans.mp4">
           <button class="btn-primary" onclick="applyVideoUrl()">تشغيل وتزامن 🎬</button>
