@@ -612,11 +612,19 @@ function applyBrowserUrl() {
     } else if (url.includes('youtu.be/')) {
       videoId = url.split('youtu.be/')[1].split('?')[0];
     }
-    if (videoId && webBrowserIframe) {
-      webBrowserIframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`;
+    if (webBrowserIframe) {
+      const embedId = videoId || 'jfKfPfyJRdk';
+      webBrowserIframe.src = `https://www.youtube-nocookie.com/embed/${embedId}?autoplay=1`;
       showToast('🎬 تم تشغيل فيديو يوتيوب داخل المتصفح');
       return;
     }
+  }
+
+  // إذا كان موقع إيجي ديد
+  if (url.includes('egydead')) {
+    showToast('🍿 إيجي ديد يمنع التضمين لحماية حقوقه. جاري تشغيل بث الشاشة لمشاركة التبويب مع أصحابك فوراً...', 5000);
+    startScreenShare();
+    return;
   }
 
   // إذا كان بحث جوجل أو رابط موقع
@@ -644,11 +652,31 @@ function browserNavigateTo(url) {
     return;
   }
 
+  if (url.includes('egydead')) {
+    showToast('🍿 إيجي ديد محمي من التضمين. جاري فتح بث الشاشة لاختيار تبويب الفيلم ومشاركته...', 5000);
+    startScreenShare();
+    return;
+  }
+
+  if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    let videoId = '';
+    if (url.includes('v=')) {
+      videoId = url.split('v=')[1].split('&')[0];
+    } else if (url.includes('youtu.be/')) {
+      videoId = url.split('youtu.be/')[1].split('?')[0];
+    }
+    if (webBrowserIframe) {
+      const embedId = videoId || 'jfKfPfyJRdk';
+      webBrowserIframe.src = `https://www.youtube-nocookie.com/embed/${embedId}?autoplay=1`;
+      showToast('🎬 تم فتح يوتيوب داخل المتصفح');
+      updateQuickAccessActive(url);
+      return;
+    }
+  }
+
   if (webBrowserIframe) {
     if (url.includes('google.com')) {
       webBrowserIframe.src = 'https://www.google.com/webhp?igu=1';
-    } else if (url.includes('youtube.com')) {
-      webBrowserIframe.src = 'https://www.youtube-nocookie.com/embed?listType=search&list=trending';
     } else {
       webBrowserIframe.src = url;
     }
