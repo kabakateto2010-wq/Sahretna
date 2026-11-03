@@ -354,7 +354,38 @@ function switchMainMode(mode) {
 // 3. أحداث مشغل الفيديو المباشر
 // ==============================================================
 
+// تفعيل دعم شاشة القفل والتحكم في الخلفية للهواتف (MediaSession API للآيفون والأندرويد)
+function updateLockScreenMediaMetadata(title = 'سهرة بلس | بث الفيلم المباشر') {
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: title,
+      artist: 'قاعة سهرة الأصدقاء',
+      album: 'سهرة بلس السينمائية',
+      artwork: [
+        { src: '/favicon.ico', sizes: '128x128', type: 'image/x-icon' }
+      ]
+    });
+
+    navigator.mediaSession.setActionHandler('play', () => {
+      if (cinemaPlayer.paused) cinemaPlayer.play().catch(() => {});
+    });
+
+    navigator.mediaSession.setActionHandler('pause', () => {
+      if (!cinemaPlayer.paused) cinemaPlayer.pause();
+    });
+
+    navigator.mediaSession.setActionHandler('seekforward', () => {
+      cinemaPlayer.currentTime = Math.min(cinemaPlayer.duration || 0, cinemaPlayer.currentTime + 10);
+    });
+
+    navigator.mediaSession.setActionHandler('seekbackward', () => {
+      cinemaPlayer.currentTime = Math.max(0, cinemaPlayer.currentTime - 10);
+    });
+  }
+}
+
 cinemaPlayer.addEventListener('play', () => {
+  updateLockScreenMediaMetadata();
   if (isSyncing) return;
   socket.emit('video-action', { roomId: currentRoomId, action: 'play', time: cinemaPlayer.currentTime });
 });

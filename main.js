@@ -1,10 +1,12 @@
 // ====================================================================
 // 🍿 سهرة بلس - تطبيق سطح المكتب الذكي (Sahretna Desktop App)
 // ====================================================================
-const { app, BrowserWindow, session, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, session, ipcMain, shell, powerSaveBlocker } = require('electron');
 const path = require('path');
 const http = require('http');
 const os = require('os');
+
+let powerBlockerId = null;
 
 // تحديد الآي بي المحلي لشبكة الواي فاي لمشاركته مع الأصدقاء
 function getLocalNetworkIp() {
@@ -93,11 +95,23 @@ async function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // منع نظام التشغيل من تعليق البرنامج أو الدخول في وضع السكون طالما السهرة شغالة
+  try {
+    powerBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+    console.log('[Power] تم تفعيل وضع الاستيقاظ الدائم (Sleep Blocker Active, id:', powerBlockerId, ')');
+  } catch (e) {}
+
   createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+app.on('before-quit', () => {
+  if (powerBlockerId && powerSaveBlocker.isStarted(powerBlockerId)) {
+    powerSaveBlocker.stop(powerBlockerId);
+  }
 });
 
 app.on('window-all-closed', () => {
