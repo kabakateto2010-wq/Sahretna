@@ -93,6 +93,13 @@
               <option value="12">12 فرد</option>
             </select>
           </div>
+          <div class="popover-item" style="flex-direction:column; align-items:flex-start; gap:6px;">
+            <label class="popover-label">🌐 سيرفر السهرة (Vercel Backend):</label>
+            <div style="display:flex; width:100%; gap:4px;">
+              <input type="text" id="customServerUrlInput" class="popover-select" style="width:100%; font-size:11px;" placeholder="رابط السيرفر المباشر...">
+              <button class="btn-primary" style="padding:4px 8px; font-size:11px; white-space:nowrap;" onclick="applyCustomServerUrl()">ربط ⚡</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -508,7 +515,7 @@
     </div>
   </div>
 
-  <script src="/socket.io/socket.io.js"></script>
+  <script src="socket.io.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

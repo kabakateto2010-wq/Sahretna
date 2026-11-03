@@ -134,6 +134,31 @@ document.addEventListener('click', (e) => {
   }
 });
 
+function applyCustomServerUrl() {
+  const input = document.getElementById('customServerUrlInput');
+  if (!input) return;
+  const val = input.value.trim();
+  if (!val) {
+    try { localStorage.removeItem('sahretna_backend_url'); } catch (e) {}
+    showToast('تمت استعادة الاتصال بالسيرفر الافتراضي. جاري التحديث...');
+    setTimeout(() => window.location.reload(), 1000);
+    return;
+  }
+  try { localStorage.setItem('sahretna_backend_url', val); } catch (e) {}
+  showToast(`⚡ تم حفظ رابط السيرفر (${val})، جاري إعادة الاتصال...`);
+  setTimeout(() => window.location.reload(), 1000);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('customServerUrlInput');
+  if (input) {
+    try {
+      const saved = localStorage.getItem('sahretna_backend_url') || (socketServerUrl || '');
+      if (saved) input.value = saved;
+    } catch (e) {}
+  }
+});
+
 function getShareableLink() {
   const room = currentRoomId || 'cinema-main';
   if (window.SAHRETNA_PUBLIC_URL) {
