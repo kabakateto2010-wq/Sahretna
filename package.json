@@ -1,32 +1,10 @@
 {
-  "name": "hyperbeam-cinema-sync",
+  "name": "sahretna",
   "version": "1.0.0",
-  "description": "منصة المشاهدة المشتركة والمتصفح السينمائي الافتراضي المفتوح",
   "scripts": {
-    "start": "node server/server.js",
-    "build": "echo 'Build OK'",
-    "postinstall": "node -e \"if (!process.env.VERCEL) { try { require('child_process').execSync('npx puppeteer install', { stdio: 'inherit' }); } catch(e){} }\"",
-    "desktop": "electron main.js"
+    "start": "node server/server.js"
   },
-  "keywords": [
-    "watch-party",
-    "co-watch",
-    "socket.io",
-    "hyperbeam-alternative",
-    "virtual-browser",
-    "electron"
-  ],
-  "author": "Ahmed Gamal",
-  "license": "MIT",
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "puppeteer": "^24.43.1",
-    "puppeteer-core": "^24.43.1",
-    "socket.io": "^4.7.5",
-    "socket.io-client": "^4.8.4"
-  },
-  "devDependencies": {
-    "electron": "^41.7.1"
+    "express": "^4.19.2"
   }
 }

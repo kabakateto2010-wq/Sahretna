@@ -1,6 +1,7 @@
-server.js
-virtualBrowser.js
-subtitleService.js
+server
+node_modules
+package-lock.json
 main.js
 .cache
 .chrome-session
+Dockerfile
