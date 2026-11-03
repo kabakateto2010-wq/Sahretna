@@ -1,13 +1,24 @@
 // ====================================================================
 // 🍿 Hyperbeam Engine - High-Performance Stealth Browser
 // ====================================================================
-const puppeteer = require('puppeteer-core');
+let puppeteer;
+try {
+  puppeteer = require('puppeteer');
+} catch (e) {
+  puppeteer = require('puppeteer-core');
+}
 const fs = require('fs');
 const path = require('path');
 
 function findChromeExecutable() {
   if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
     return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  if (puppeteer && typeof puppeteer.executablePath === 'function') {
+    try {
+      const p = puppeteer.executablePath();
+      if (p && fs.existsSync(p)) return p;
+    } catch (e) {}
   }
   const candidates = [
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
