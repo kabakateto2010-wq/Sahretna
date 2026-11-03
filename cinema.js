@@ -85,6 +85,15 @@ const urlParams = new URLSearchParams(window.location.search);
 const initialRoomFromUrl = urlParams.get('room');
 if (initialRoomFromUrl) {
   customRoomInput.value = initialRoomFromUrl;
+  const welcomeTitle = document.querySelector('#welcomeModal h2');
+  if (welcomeTitle) welcomeTitle.textContent = '🍿 دعوة إلى سهرة سينما مشتركة';
+  const welcomeDesc = document.querySelector('#welcomeModal p');
+  if (welcomeDesc) welcomeDesc.textContent = `تمت دعوتك للانضمام إلى القاعة (${initialRoomFromUrl}). اضغط الزر بالأسفل للدخول فوراً!`;
+  const joinBtn = document.querySelector('#welcomeModal .btn-primary');
+  if (joinBtn) {
+    joinBtn.textContent = 'انضمام لسهرة صديقك الآن 🍿';
+    joinBtn.style.background = 'linear-gradient(135deg, #e50914, #ff2233)';
+  }
 }
 
 // تعيين اسم افتراضي مسبقاً للتسهيل
@@ -131,13 +140,8 @@ function enterCinema(isNewRoom = false) {
     joinedViaSocket = true;
   }
 
-  // في حال كان الموقع يعمل عبر Vercel أو السيرفر غير متصل، يتم تفعيل وضع P2P السحابي المباشر فوراً
-  setTimeout(() => {
-    if (!socket || !socket.connected) {
-      console.log('[Cinema] تفعيل وضع P2P السحابي المباشر...');
-      initP2PRoom(currentRoomId, currentUsername, userAvatar);
-    }
-  }, joinedViaSocket ? 2000 : 300);
+  // تفعيل وضع P2P السحابي المباشر فوراً لضمان مزامنة الشاشات 24/7
+  initP2PRoom(currentRoomId, currentUsername, userAvatar);
 }
 
 // ==============================================================
@@ -212,16 +216,23 @@ function initP2PRoom(roomId, username, avatar) {
     return;
   }
 
+  const peerOptions = {
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' }
+      ]
+    }
+  };
+
   const cleanRoom = (roomId || 'cinema-main').toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'cinema';
   const hostPeerId = `sahretna-room-${cleanRoom}-host`;
 
   try {
-    p2pPeer = new Peer(hostPeerId, {
-      host: '0.peerjs.com',
-      port: 443,
-      path: '/',
-      secure: true
-    });
+    p2pPeer = new Peer(hostPeerId, peerOptions);
     attachPeerCallHandler(p2pPeer);
   } catch (err) {
     console.warn('[P2P] خطأ في إنشاء Peer:', err);
@@ -230,6 +241,7 @@ function initP2PRoom(roomId, username, avatar) {
 
   p2pPeer.on('open', (id) => {
     console.log('[P2P] أصبحت مضيف القاعة السحابية:', id);
+    isP2PActive = true;
     isHost = true;
     selfUser.isHost = true;
     updateUsersListUI(p2pUsers);
@@ -237,20 +249,17 @@ function initP2PRoom(roomId, username, avatar) {
 
   p2pPeer.on('error', (err) => {
     if (err.type === 'unavailable-id') {
-      console.log('[P2P] القاعة بها مضيف بالفعل، جاري الانضمام...');
+      console.log('[P2P] القاعة بها مضيف بالفعل، جاري الانضمام كضيف...');
       const guestId = `sahretna-room-${cleanRoom}-guest-${Math.random().toString(36).substring(2, 7)}`;
-      p2pPeer = new Peer(guestId, {
-        host: '0.peerjs.com',
-        port: 443,
-        path: '/',
-        secure: true
-      });
+      p2pPeer = new Peer(guestId, peerOptions);
       attachPeerCallHandler(p2pPeer);
       p2pPeer.on('open', () => {
+        isP2PActive = true;
         isHost = false;
         selfUser.isHost = false;
         const conn = p2pPeer.connect(hostPeerId, {
-          metadata: { name: username, avatar: avatar }
+          metadata: { name: username, avatar: avatar },
+          reliable: true
         });
         setupP2PConnection(conn);
         showToast('🍿 تم الانضمام لقاعة السهرة السحابية بنجاح!');
@@ -270,7 +279,7 @@ function attachPeerCallHandler(peer) {
     call.answer(); // لا نرسل كاميرا، فقط نستقبل
     call.on('stream', (remoteStream) => {
       console.log('[P2P] تم استقبال تيار البث الحي بنجاح');
-      switchMainMode('player');
+      switchMainMode('player', true);
       cinemaPlayer.srcObject = remoteStream;
       cinemaPlayer.play().catch(e => console.warn('Autoplay error:', e));
       showToast('🖥️ صديقك بدأ بث الشاشة والصوت مباشرة!');
@@ -279,6 +288,7 @@ function attachPeerCallHandler(peer) {
 }
 
 function setupP2PConnection(conn) {
+  if (!conn) return;
   p2pConnections.push(conn);
 
   // إذا كان هناك بث شاشة نشط بالفعل، نتصل بالصديق المنضم حديثاً
@@ -292,31 +302,45 @@ function setupP2PConnection(conn) {
     }, 1200);
   }
 
-  conn.on('open', () => {
-    console.log('[P2P] اتصال صديق جديد:', conn.peer);
+  function handleReady() {
+    console.log('[P2P] اتصال صديق جديد جاهز:', conn.peer);
     const avatarInput = document.getElementById('selectedAvatarInput');
-    conn.send({
-      type: 'user-joined',
-      user: {
-        id: conn.peer,
-        name: currentUsername,
-        avatar: avatarInput ? avatarInput.value : '🍿',
-        isHost: isHost
-      }
-    });
-
-    if (isHost && cinemaPlayer) {
+    try {
       conn.send({
-        type: 'sync-state',
-        videoState: {
-          url: cinemaPlayer.currentSrc || cinemaPlayer.src,
-          currentTime: cinemaPlayer.currentTime,
-          isPlaying: !cinemaPlayer.paused
-        },
-        users: p2pUsers
+        type: 'user-joined',
+        user: {
+          id: p2pPeer ? p2pPeer.id : conn.peer,
+          name: currentUsername,
+          avatar: avatarInput ? avatarInput.value : '🍿',
+          isHost: isHost
+        }
       });
+
+      if (isHost) {
+        conn.send({
+          type: 'sync-state',
+          activeMode: currentActiveMode,
+          browserUrl: browserUrlInput ? browserUrlInput.value : '',
+          videoState: cinemaPlayer ? {
+            url: cinemaPlayer.currentSrc || cinemaPlayer.src,
+            currentTime: cinemaPlayer.currentTime,
+            isPlaying: !cinemaPlayer.paused
+          } : null,
+          users: p2pUsers
+        });
+      } else {
+        conn.send({ type: 'request-sync' });
+      }
+    } catch (e) {
+      console.warn('[P2P] send on ready error:', e);
     }
-  });
+  }
+
+  if (conn.open) {
+    handleReady();
+  } else {
+    conn.on('open', handleReady);
+  }
 
   conn.on('data', (data) => {
     handleP2PIncomingData(data, conn);
@@ -333,6 +357,24 @@ function handleP2PIncomingData(data, conn) {
   if (!data || !data.type) return;
 
   switch (data.type) {
+    case 'request-sync':
+      if (isHost || currentActiveMode || (cinemaPlayer && cinemaPlayer.src)) {
+        try {
+          conn.send({
+            type: 'sync-state',
+            activeMode: currentActiveMode,
+            browserUrl: browserUrlInput ? browserUrlInput.value : '',
+            videoState: cinemaPlayer ? {
+              url: cinemaPlayer.currentSrc || cinemaPlayer.src,
+              currentTime: cinemaPlayer.currentTime,
+              isPlaying: !cinemaPlayer.paused
+            } : null,
+            users: p2pUsers
+          });
+        } catch (e) {}
+      }
+      break;
+
     case 'user-joined':
       if (data.user) {
         if (!p2pUsers.some(u => u.name === data.user.name)) {
@@ -373,8 +415,9 @@ function handleP2PIncomingData(data, conn) {
       break;
 
     case 'screen-share-started':
-      switchMainMode('player');
+      switchMainMode('player', true);
       showToast('🖥️ بدأ الصديق بث الشاشة والصوت...');
+      if (isHost) broadcastP2P(data);
       break;
 
     case 'screen-share-ended':
@@ -383,12 +426,14 @@ function handleP2PIncomingData(data, conn) {
       if (cinemaPlayer.src) {
         cinemaPlayer.play().catch(() => {});
       }
+      if (isHost) broadcastP2P(data);
       break;
 
     case 'video-action':
       if (cinemaPlayer) {
         isSyncing = true;
         if (data.url && cinemaPlayer.src !== data.url) {
+          switchMainMode('player', true);
           cinemaPlayer.src = data.url;
         }
         if (typeof data.time === 'number') {
@@ -407,9 +452,18 @@ function handleP2PIncomingData(data, conn) {
       break;
 
     case 'sync-state':
+      if (data.activeMode && data.activeMode !== currentActiveMode) {
+        switchMainMode(data.activeMode, true);
+      }
+      if (data.browserUrl && browserUrlInput) {
+        browserUrlInput.value = data.browserUrl;
+        applySyncedBrowserUrl(data.browserUrl);
+      }
       if (data.videoState && cinemaPlayer) {
         isSyncing = true;
-        if (data.videoState.url) cinemaPlayer.src = data.videoState.url;
+        if (data.videoState.url && cinemaPlayer.src !== data.videoState.url) {
+          cinemaPlayer.src = data.videoState.url;
+        }
         if (typeof data.videoState.currentTime === 'number') {
           cinemaPlayer.currentTime = data.videoState.currentTime;
         }
@@ -424,6 +478,23 @@ function handleP2PIncomingData(data, conn) {
         p2pUsers = data.users;
         updateUsersListUI(p2pUsers);
       }
+      break;
+
+    case 'mode-switch-sync':
+      if (data.mode && data.mode !== currentActiveMode) {
+        switchMainMode(data.mode, true);
+        showToast(`🎬 تم الانتقال إلى وضع: ${data.mode === 'browser' ? 'المتصفح' : 'مشغل الفيديو'}`);
+      }
+      if (isHost) broadcastP2P(data);
+      break;
+
+    case 'browser-navigate-sync':
+      if (data.url) {
+        if (browserUrlInput) browserUrlInput.value = data.url;
+        applySyncedBrowserUrl(data.url);
+        showToast(`🌐 تم مزامنة صفحة: ${data.url}`);
+      }
+      if (isHost) broadcastP2P(data);
       break;
   }
 }
@@ -484,25 +555,29 @@ window.addEventListener('DOMContentLoaded', () => {
 
 function getShareableLink() {
   const room = currentRoomId || 'cinema-main';
-  if (window.SAHRETNA_PUBLIC_URL) {
-    return `${window.SAHRETNA_PUBLIC_URL}/?room=${room}`;
+  // إذا كنا على Vercel أو دومين الإنتاج
+  if (window.location.hostname && window.location.hostname.includes('vercel.app')) {
+    return `https://${window.location.hostname}/?room=${room}`;
   }
-  if (window.SAHRETNA_LOCAL_IP && window.SAHRETNA_LOCAL_IP !== 'localhost') {
-    return `http://${window.SAHRETNA_LOCAL_IP}:3000/?room=${room}`;
+  // إذا كنا على دومين عام حقيقي
+  if (window.location.origin && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1') && !window.location.hostname.startsWith('192.168.')) {
+    return `${window.location.origin}/?room=${room}`;
   }
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return `${window.location.protocol}//${window.location.host}/?room=${room}`;
-  }
-  return `${window.location.origin}/?room=${room}`;
+  // في كافة الحالات الأخرى (التطبيق المكتبي أو اللوكل)، نعطي دائماً رابط Vercel السحابي الدائم ليعمل عند أي شخص في العالم
+  return `https://sahretna-eight.vercel.app/?room=${room}`;
 }
 
 function copyInviteLink() {
   const link = getShareableLink();
-  navigator.clipboard.writeText(link).then(() => {
-    showToast(`📋 تم نسخ رابط السهرة لأصدقائك:<br><span style="font-size:0.85em;color:#ff3344;direction:ltr;display:inline-block;">${link}</span>`, 4500);
-  }).catch(() => {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(link).then(() => {
+      showToast(`📋 تم نسخ رابط السهرة بنجاح!<br><span style="font-size:0.85em;color:#ff3344;direction:ltr;display:inline-block;margin-top:4px;">${link}</span><br>أرسله لأصدقائك وسيدخلون معك فوراً 🍿`, 5000);
+    }).catch(() => {
+      prompt('انسخ الرابط وشاركه مع أصدقائك:', link);
+    });
+  } else {
     prompt('انسخ الرابط وشاركه مع أصدقائك:', link);
-  });
+  }
 }
 
 function changeRoomLimit(val) {
@@ -587,47 +662,49 @@ function changeBrowserQuality(quality) {
   showToast(`🎬 جاري التبديل إلى: ${label}...`);
 }
 
-// إرسال الرابط المطلوب
-function applyBrowserUrl() {
-  const url = browserUrlInput.value.trim();
+// تطبيق الرابط ومزامنته مع عناصر المتصفح
+function applySyncedBrowserUrl(url) {
   if (!url) return;
+  url = url.trim();
+  if (browserUrlInput) browserUrlInput.value = url;
+  updateQuickAccessActive(url);
 
-  if (socket && socket.connected) {
-    browserLoadingOverlay.classList.remove('hidden');
-    socket.emit('browser-navigate', { roomId: currentRoomId, url: url });
-    return;
-  }
-
-  // إذا كان الرابط فيديو مباشر، نشغله فوراً في مشغل الفيديو
+  // إذا كان ملف فيديو مباشر (.mp4 / .m3u8 / .webm)
   if (url.includes('.mp4') || url.includes('.m3u8') || url.includes('.webm')) {
-    playPresetVideo(url, 'الفيديو المطلوب');
+    switchMainMode('player', true);
+    if (cinemaPlayer) {
+      if (cinemaPlayer.src !== url) cinemaPlayer.src = url;
+      cinemaPlayer.play().catch(() => {});
+    }
     return;
   }
 
-  // إذا كان يوتيوب، تضمين مشغل اليوتيوب
+  // إذا كان يوتيوب، تضمين مشغل اليوتيوب المتوافق بدون حجب
   if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    switchMainMode('browser', true);
     let videoId = '';
     if (url.includes('v=')) {
       videoId = url.split('v=')[1].split('&')[0];
     } else if (url.includes('youtu.be/')) {
       videoId = url.split('youtu.be/')[1].split('?')[0];
+    } else if (url.includes('embed/')) {
+      videoId = url.split('embed/')[1].split('?')[0];
     }
     if (webBrowserIframe) {
       const embedId = videoId || 'jfKfPfyJRdk';
       webBrowserIframe.src = `https://www.youtube-nocookie.com/embed/${embedId}?autoplay=1`;
-      showToast('🎬 تم تشغيل فيديو يوتيوب داخل المتصفح');
       return;
     }
   }
 
-  // إذا كان موقع إيجي ديد
+  // إذا كان موقع إيجي ديد المحمي
   if (url.includes('egydead')) {
-    showToast('🍿 إيجي ديد يمنع التضمين لحماية حقوقه. جاري تشغيل بث الشاشة لمشاركة التبويب مع أصحابك فوراً...', 5000);
-    startScreenShare();
+    showToast('🍿 إيجي ديد محمي من التضمين. يمكنك مشاركته فوراً عبر زر "🖥️ بث الشاشة والصوت"!', 4500);
     return;
   }
 
-  // إذا كان بحث جوجل أو رابط موقع
+  // إذا كان بحث جوجل أو موقع ويب
+  switchMainMode('browser', true);
   if (webBrowserIframe) {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       if (url.includes('google.com')) {
@@ -636,53 +713,46 @@ function applyBrowserUrl() {
         webBrowserIframe.src = url;
       }
     } else {
-      // بحث في جوجل
       webBrowserIframe.src = `https://www.google.com/search?igu=1&q=${encodeURIComponent(url)}`;
     }
-    showToast(`🌐 جاري الانتقال إلى: ${url}`);
   }
 }
 
+// إرسال الرابط المطلوب
+function applyBrowserUrl() {
+  const url = (browserUrlInput ? browserUrlInput.value : '').trim();
+  if (!url) return;
+
+  applySyncedBrowserUrl(url);
+
+  if (isP2PActive) {
+    broadcastP2P({ type: 'browser-navigate-sync', url: url });
+  }
+
+  if (socket && socket.connected) {
+    browserLoadingOverlay.classList.remove('hidden');
+    socket.emit('browser-navigate', { roomId: currentRoomId, url: url });
+  }
+  showToast(`🌐 جاري تصفح: ${url}`);
+}
+
 function browserNavigateTo(url) {
-  browserUrlInput.value = url;
+  if (!url) return;
+  url = url.trim();
+  if (browserUrlInput) browserUrlInput.value = url;
+
+  applySyncedBrowserUrl(url);
+
+  if (isP2PActive) {
+    broadcastP2P({ type: 'browser-navigate-sync', url: url });
+  }
+
   if (socket && socket.connected) {
     browserLoadingOverlay.classList.remove('hidden');
     socket.emit('browser-navigate', { roomId: currentRoomId, url: url });
     updateQuickAccessActive(url);
-    return;
   }
-
-  if (url.includes('egydead')) {
-    showToast('🍿 إيجي ديد محمي من التضمين. جاري فتح بث الشاشة لاختيار تبويب الفيلم ومشاركته...', 5000);
-    startScreenShare();
-    return;
-  }
-
-  if (url.includes('youtube.com') || url.includes('youtu.be')) {
-    let videoId = '';
-    if (url.includes('v=')) {
-      videoId = url.split('v=')[1].split('&')[0];
-    } else if (url.includes('youtu.be/')) {
-      videoId = url.split('youtu.be/')[1].split('?')[0];
-    }
-    if (webBrowserIframe) {
-      const embedId = videoId || 'jfKfPfyJRdk';
-      webBrowserIframe.src = `https://www.youtube-nocookie.com/embed/${embedId}?autoplay=1`;
-      showToast('🎬 تم فتح يوتيوب داخل المتصفح');
-      updateQuickAccessActive(url);
-      return;
-    }
-  }
-
-  if (webBrowserIframe) {
-    if (url.includes('google.com')) {
-      webBrowserIframe.src = 'https://www.google.com/webhp?igu=1';
-    } else {
-      webBrowserIframe.src = url;
-    }
-    showToast(`🌐 جاري تصفح: ${url}`);
-    updateQuickAccessActive(url);
-  }
+  showToast(`🌐 جاري تصفح: ${url}`);
 }
 
 function browserGoBack() {
@@ -826,8 +896,8 @@ browserContainer.addEventListener('keyup', (e) => {
   socket.emit('browser-key', { roomId: currentRoomId, event: { type: 'keyUp', key: e.key, code: e.code } });
 });
 
-// تبديل أوضاع العرض (متصفح افتراضي / مشغل فيديو)
-function switchMainMode(mode) {
+// تبديل أوضاع العرض (متصفح افتراضي / مشغل فيديو) ومزامنته فوراً
+function switchMainMode(mode, fromSync = false) {
   currentActiveMode = mode;
   if (mode === 'browser') {
     browserView.style.display = 'flex';
@@ -841,8 +911,14 @@ function switchMainMode(mode) {
     btnModeBrowser.classList.remove('active');
     btnModePlayer.classList.add('active');
   }
-  if (socket && socket.connected) {
-    socket.emit('switch-mode', { roomId: currentRoomId, mode });
+
+  if (!fromSync) {
+    if (isP2PActive) {
+      broadcastP2P({ type: 'mode-switch-sync', mode: mode });
+    }
+    if (socket && socket.connected) {
+      socket.emit('switch-mode', { roomId: currentRoomId, mode });
+    }
   }
 }
 
@@ -929,6 +1005,7 @@ function applyVideoUrl() {
   const url = videoUrlInput.value.trim();
   if (!url) return;
   isSyncing = true;
+  switchMainMode('player');
   cinemaPlayer.src = url;
   cinemaPlayer.play().catch(() => {});
   if (isP2PActive) {
@@ -1512,7 +1589,7 @@ const QA_STORAGE_KEY = 'sahra_quick_access_sites';
 const DEFAULT_QUICK_ACCESS = [
   { id: 'qa-google', title: '🔍 بحث Google', url: 'https://www.google.com' },
   { id: 'qa-egydead', title: '🍿 ايجي ديد (EgyDead)', url: 'https://egydead.live' },
-  { id: 'qa-youtube', title: '🎬 يوتيوب', url: 'https://www.youtube.com' }
+  { id: 'qa-youtube', title: '🎬 يوتيوب (سينما)', url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk' }
 ];
 
 function getQuickAccess() {
