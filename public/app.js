@@ -103,21 +103,28 @@ function showToast(text, duration = 3000) {
 // 2. التحكم في المتصفح الافتراضي (Canvas Stream & Inputs)
 // ==============================================================
 
-// استقبال إطارات البث المباشر للشاشة ورسمها بسلاسة ونقاء عالي
+// استقبال إطارات البث المباشر للشاشة ورسمها بسلاسة ونقاء عالي مع حماية من تراكم الإطارات
+let isFrameRendering = false;
+const liveBrowserImg = new Image();
+
+liveBrowserImg.onload = () => {
+  if (browserCanvas.width !== liveBrowserImg.naturalWidth || browserCanvas.height !== liveBrowserImg.naturalHeight) {
+    browserCanvas.width = liveBrowserImg.naturalWidth;
+    browserCanvas.height = liveBrowserImg.naturalHeight;
+  }
+  ctx.drawImage(liveBrowserImg, 0, 0);
+  browserLoadingOverlay.classList.add('hidden');
+  isFrameRendering = false;
+};
+
+liveBrowserImg.onerror = () => {
+  isFrameRendering = false;
+};
+
 socket.on('browser-frame', (frameBase64) => {
-  const img = new Image();
-  img.onload = () => {
-    // مطابقة أبعاد الكانفاس الحقيقية مع جودة الإطار المستقبل بدقة 1:1 بدون أي بكسلة
-    if (browserCanvas.width !== img.width || browserCanvas.height !== img.height) {
-      browserCanvas.width = img.width;
-      browserCanvas.height = img.height;
-    }
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, 0, 0);
-    browserLoadingOverlay.classList.add('hidden');
-  };
-  img.src = frameBase64;
+  if (isFrameRendering) return; // إسقاط الإطارات المتأخرة لمنع أي تأخير زمني أو ثقل
+  isFrameRendering = true;
+  liveBrowserImg.src = frameBase64;
 });
 
 // تحديث شريط الرابط تلقائياً عند تنقل المتصفح
