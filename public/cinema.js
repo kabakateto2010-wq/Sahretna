@@ -15,10 +15,31 @@ if (initUrlParams.get('server')) {
   } catch (e) {}
 }
 
-const socket = io(socketServerUrl || undefined, {
-  transports: ['websocket', 'polling'],
-  reconnectionAttempts: 5
-});
+let socket = null;
+const isVercelStandalone = window.location.hostname.includes('vercel.app') && !socketServerUrl;
+
+if (!isVercelStandalone) {
+  try {
+    socket = io(socketServerUrl || undefined, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 2,
+      timeout: 2500
+    });
+  } catch (e) {
+    console.warn('[Socket] Init fallback to P2P:', e);
+  }
+}
+
+// كائن بديل آمن لمنع أي أخطاء عند العمل بدون سيرفر خلفي (Vercel Standalone Mode)
+if (!socket) {
+  socket = {
+    id: 'guest_' + Math.random().toString(36).substring(2, 7),
+    connected: false,
+    on: () => {},
+    emit: () => {},
+    off: () => {}
+  };
+}
 
 let currentRoomId = '';
 let currentUsername = '';
@@ -174,7 +195,16 @@ function initP2PRoom(roomId, username, avatar) {
 
   // التبديل التلقائي إلى مشغل الفيديو السحابي الجاهز للعمل فوراً
   switchMainMode('player');
-  showToast('🍿 تم تشغيل السهرة السحابية فوراً! اختر أي فيديو لبدء المشاهدة مع الأصدقاء.');
+
+  // تعيين الفيلم التجريبي الافتراضي عالي الجودة
+  if (cinemaPlayer) {
+    cinemaPlayer.src = 'https://vjs.zencdn.net/v/oceans.mp4';
+  }
+  if (videoUrlInput) {
+    videoUrlInput.value = 'https://vjs.zencdn.net/v/oceans.mp4';
+  }
+
+  showToast('🍿 تم تشغيل السهرة السحابية فوراً! اضغط تشغيل لمشاهدة الفيلم أو اختر فيلماً من القائمة.');
 
   if (typeof Peer === 'undefined') {
     console.warn('[P2P] مكتبة PeerJS غير متوفرة');
@@ -750,6 +780,13 @@ function applyVideoUrl() {
     socket.emit('video-action', { roomId: currentRoomId, action: 'play', sourceType: 'url', url: url, time: 0 });
   }
   setTimeout(() => { isSyncing = false; }, 400);
+}
+
+function playPresetVideo(url, title) {
+  if (!cinemaPlayer || !videoUrlInput) return;
+  videoUrlInput.value = url;
+  applyVideoUrl();
+  showToast(`🎬 جاري تشغيل: ${title}`);
 }
 
 function handleLocalFile(e) {

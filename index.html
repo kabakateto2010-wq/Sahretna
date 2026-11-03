@@ -228,6 +228,11 @@
           <div id="browserLoadingOverlay" class="browser-loading">
             <div class="spinner"></div>
             <span>جاري تشغيل المتصفح الافتراضي...</span>
+            <div style="margin-top:16px; background:rgba(18,18,26,0.95); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:14px 20px; max-width:420px; text-align:center;">
+              <p style="font-size:13px; color:#fff; font-weight:700; margin-bottom:6px;">🍿 أنت الآن على رابط Vercel السحابي المباشر</p>
+              <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">لمشاهدة الأفلام واليوتيوب مباشرة مع أصدقائك 24/7:</p>
+              <button class="btn-primary" onclick="switchMainMode('player')" style="padding:8px 18px; font-size:13px;">🎬 الانتقال لمشغل الفيديو الفوري 🍿</button>
+            </div>
           </div>
 
           <!-- شريط التحكم السينمائي العائم (تقديم، تأخير، تشغيل، صورة مصغرة، ملء الشاشة) -->
@@ -264,7 +269,7 @@
       <!-- 2. واجهة مشغل الفيديو المباشر -->
       <div class="player-view" id="playerView">
         <div class="player-toolbar">
-          <input type="text" id="videoUrlInput" placeholder="أدخل رابط ملف فيديو مباشر (MP4 / WebM / M3U8)..." value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">
+          <input type="text" id="videoUrlInput" placeholder="أدخل رابط ملف فيديو مباشر (MP4 / WebM / M3U8)..." value="https://vjs.zencdn.net/v/oceans.mp4">
           <button class="btn-primary" onclick="applyVideoUrl()">تشغيل وتزامن 🎬</button>
           <button class="btn-secondary" onclick="document.getElementById('localFileInput').click()">📁 ملف محلي</button>
           <input type="file" id="localFileInput" accept="video/*" style="display:none;" onchange="handleLocalFile(event)">
@@ -272,6 +277,14 @@
           <input type="file" id="subtitleFileInput" accept=".srt,.vtt" style="display:none;" onchange="handleSubtitleFile(event)">
           <button class="btn-secondary" onclick="togglePictureInPicture()" title="شاشة مصغرة">📺 مصغرة</button>
           <button class="btn-secondary" onclick="toggleFullscreen()" title="ملء الشاشة">⛶ ملء الشاشة</button>
+        </div>
+
+        <!-- أزرار سينما جاهزة للمشاهدة الفورية بنقرة واحدة -->
+        <div class="quick-presets-bar" style="display:flex; align-items:center; gap:8px; padding:8px 16px; background:rgba(255,255,255,0.03); border-bottom:1px solid rgba(255,255,255,0.06); flex-wrap:wrap;">
+          <span style="font-size:12px; font-weight:700; color:var(--text-secondary);">🍿 أفلام جاهزة للتجربة:</span>
+          <button class="btn-secondary" style="font-size:12px; padding:5px 12px; background:rgba(229,9,20,0.18); border-color:rgba(229,9,20,0.4); color:#fff;" onclick="playPresetVideo('https://vjs.zencdn.net/v/oceans.mp4', 'عالم المحيطات (HD)')">🌊 فيلم المحيطات (شغال فوراً)</button>
+          <button class="btn-secondary" style="font-size:12px; padding:5px 12px;" onclick="playPresetVideo('https://media.w3.org/2010/05/sintel/trailer.mp4', 'سينتل أنيميشن (HD)')">🐉 سينتل أنيميشن</button>
+          <button class="btn-secondary" style="font-size:12px; padding:5px 12px;" onclick="document.getElementById('localFileInput').click()">📁 تشغيل فيلم من جهازي</button>
         </div>
 
         <div class="player-container">
@@ -303,8 +316,8 @@
               <span class="ambient-line"></span>
             </div>
           </div>
-          <video id="cinemaPlayer" controls playsinline crossorigin="anonymous">
-            <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+          <video id="cinemaPlayer" controls playsinline crossorigin="anonymous" src="https://vjs.zencdn.net/v/oceans.mp4">
+            <source src="https://vjs.zencdn.net/v/oceans.mp4" type="video/mp4">
           </video>
         </div>
       </div>
