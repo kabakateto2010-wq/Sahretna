@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>🍿 سهرة بلس | متصفح السينما الافتراضي المباشر (Hyperbeam Engine)</title>
+  
+  <!-- إعدادات تطبيق الويب وتثبيته على شاشات الآيفون والأندرويد (PWA) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#e50914">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="سهرة بلس">
+  <link rel="apple-touch-icon" href="favicon.ico">
+
+  <!-- خطوط Cairo و GE SS Two الفاخرة -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- شريط الملاحة العلوي المنظم -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-logo">🍿 سهرة بلس</div>
+      <div class="connection-status" title="حالة الاتصال بالسيرفر">
+        <span class="status-dot"></span>
+        <span class="status-text">مباشر</span>
+      </div>
+    </div>
+
+    <!-- أزرار التبديل المنظمة بين المتصفح ومشغل الفيديو -->
+    <div class="mode-switcher">
+      <button class="mode-btn active" id="btnModeBrowser" onclick="switchMainMode('browser')">
+        🌐 المتصفح المفتوح
+      </button>
+      <button class="mode-btn" id="btnModePlayer" onclick="switchMainMode('player')">
+        🎬 مشغل الفيديو
+      </button>
+    </div>
+
+    <!-- معلومات القاعة والتحكم المنظمة -->
+    <div class="header-actions">
+      <!-- كبسولة الروم الصوتي السريعة -->
+      <div class="voice-header-capsule" id="voiceHeaderCapsule">
+        <button class="voice-join-btn" id="voiceJoinBtn" onclick="toggleVoiceRoom()" title="الانضمام إلى الروم الصوتي المباشر للتحدث مع الأصدقاء">
+          <span class="voice-pulse-dot" id="voicePulseDot"></span>
+          <span id="voiceJoinBtnText">🎙️ الصوت</span>
+        </button>
+        <div class="voice-active-controls hidden" id="voiceActiveControls">
+          <button class="voice-ctrl-icon-btn" id="voiceMuteBtn" onclick="toggleVoiceMute()" title="كتم / تشغيل المايك (Mute)">🎙️</button>
+          <button class="voice-ctrl-icon-btn" id="voiceDeafenBtn" onclick="toggleVoiceDeafen()" title="كتم / سماع الحضور (Deafen)">🎧</button>
+          <button class="voice-ctrl-icon-btn disconnect-btn" onclick="leaveVoiceRoom()" title="مغادرة الروم الصوتي">🔴</button>
+        </div>
+      </div>
+
+      <!-- زر نسخ ومشاركة رابط السهرة المباشر مع رمز القاعة -->
+      <button class="invite-share-btn" id="btnShareInvite" onclick="copyInviteLink()" title="نسخ رابط السهرة ومشاركته مع الأصدقاء">
+        <span>🔗 دعوة</span>
+        <span class="room-mini-badge" id="roomCodeBadge">قاعة: ...</span>
+      </button>
+
+      <!-- زر مكتبة الأفلام المفضلة -->
+      <button class="library-btn" id="libraryBtn" onclick="toggleFavoritesModal()" title="مكتبة أفلامي المفضلة">
+        ⭐ مكتبتي (<span id="favCountBadge">0</span>)
+      </button>
+
+      <!-- قائمة إعدادات القاعة المنسدلة (قفل التحكم + حد الحضور بدون زحمة) -->
+      <div class="dropdown-wrapper" id="roomSettingsWrapper">
+        <button class="header-icon-btn" id="btnToggleRoomSettings" onclick="toggleRoomSettingsMenu(event)" title="إعدادات القاعة">
+          ⚙️
+        </button>
+        <div class="dropdown-popover hidden" id="roomSettingsPopover">
+          <div class="popover-header">
+            <span>⚙️ إعدادات القاعة</span>
+          </div>
+          <div class="popover-item">
+            <label class="popover-label">قفل التحكم:</label>
+            <button class="control-toggle" id="hostControlBtn" onclick="toggleHostLock()">
+              🔓 التحكم: للجميع
+            </button>
+          </div>
+          <div class="popover-item" id="hostLimitControl" title="تحديد أقصى عدد للمشاهدين">
+            <label class="popover-label">حد الحضور:</label>
+            <select id="selectMaxUsers" class="popover-select" onchange="changeRoomLimit(this.value)">
+              <option value="2">2 أفراد</option>
+              <option value="3">3 أفراد</option>
+              <option value="4">4 أفراد</option>
+              <option value="5" selected>5 أفراد (مثالي)</option>
+              <option value="8">8 أفراد</option>
+              <option value="12">12 فرد</option>
+            </select>
+          </div>
+          <div class="popover-item" style="flex-direction:column; align-items:flex-start; gap:6px;">
+            <label class="popover-label">🌐 سيرفر السهرة (Vercel Backend):</label>
+            <div style="display:flex; width:100%; gap:4px;">
+              <input type="text" id="customServerUrlInput" class="popover-select" style="width:100%; font-size:11px;" placeholder="رابط السيرفر المباشر...">
+              <button class="btn-primary" style="padding:4px 8px; font-size:11px; white-space:nowrap;" onclick="applyCustomServerUrl()">ربط ⚡</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="mobile-chat-toggle" id="mobileChatToggle" onclick="toggleMobileChat()" title="فتح / إغلاق القائمة الجانبية">
+        💬 المحادثة
+      </button>
+    </div>
+  </header>
+
+  <!-- التخطيط الرئيسي -->
+  <main class="cinema-layout" id="cinemaMainLayout">
+
+    <section class="main-stage">
+
+      <!-- 1. واجهة المتصفح الافتراضي الحقيقي (Hyperbeam Canvas Engine) -->
+      <div class="browser-view" id="browserView">
+        <!-- شريط أدوات التصفح المنظم والمريح للعين -->
+        <div class="browser-nav-bar">
+          <div class="nav-btn-group">
+            <button class="nav-ctrl-btn" onclick="browserGoBack()" title="للخلف">◀</button>
+            <button class="nav-ctrl-btn" onclick="browserGoForward()" title="للأمام">▶</button>
+            <button class="nav-ctrl-btn" onclick="browserReload()" title="تحديث">🔄</button>
+            <button class="nav-ctrl-btn" onclick="browserNavigateTo('https://www.google.com')" title="الصفحة الرئيسية (Google)">🏠</button>
+          </div>
+
+          <div class="browser-omnibar">
+            <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="ابحث في Google أو اكتب أي رابط (مثال: egydead أو youtube)..." value="https://www.google.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
+            <button class="omnibar-submit-btn" onclick="applyBrowserUrl()">تصفح 🚀</button>
+          </div>
+
+          <!-- قائمة ضبط العرض والشاشة المنسدلة (جودة + إضاءة + شفافية في زر أنيق واحد) -->
+          <div class="dropdown-wrapper" id="displaySettingsWrapper">
+            <button class="nav-ctrl-btn display-tune-btn" id="btnToggleDisplaySettings" onclick="toggleDisplaySettingsMenu(event)" title="ضبط إضاءة السينما والجودة">
+              🎛️ ضبط العرض
+            </button>
+            <div class="dropdown-popover display-popover hidden" id="displaySettingsPopover">
+              <div class="popover-header">
+                <span>🎛️ جودة وإضاءة العرض</span>
+              </div>
+              <div class="popover-item">
+                <span class="popover-label">جودة البث:</span>
+                <select id="browserQualitySelect" class="popover-select" onchange="changeBrowserQuality(this.value)">
+                  <option value="ultra">💎 فائقة (1080p نقية)</option>
+                  <option value="high" selected>✨ عالية (1080p سريعة)</option>
+                  <option value="medium">⚡ متوسطة (سلسة)</option>
+                  <option value="fast">🚀 خفيفة (نت ضعيف)</option>
+                </select>
+              </div>
+              <div class="popover-item">
+                <span class="popover-label">الإضاءة الخلفية:</span>
+                <div class="popover-slider-row">
+                  <button class="ambient-toggle-btn" id="ambientToggleBtn" onclick="toggleAmbientLight()" title="تشغيل / إيقاف الإضاءة الخلفية">💡</button>
+                  <input type="range" id="ambientBrightnessSlider" class="ambient-slider" min="0" max="100" value="70" oninput="setAmbientBrightness(this.value)">
+                  <span id="ambientBrightnessValue" class="ambient-val-badge">70%</span>
+                </div>
+              </div>
+              <div class="popover-item">
+                <span class="popover-label">شفافية الشاشة:</span>
+                <div class="popover-slider-row">
+                  <span class="ctrl-icon">🪟</span>
+                  <input type="range" id="canvasOpacitySlider" class="ambient-slider" min="30" max="100" value="100" oninput="setCanvasOpacity(this.value)">
+                  <span id="canvasOpacityValue" class="ambient-val-badge">100%</span>
+                </div>
+              </div>
+              <div class="popover-item">
+                <span class="popover-label">الوضع الليلي:</span>
+                <button class="nav-ctrl-btn dark-mode-toggle-btn" id="cinemaDarkModeBtn" onclick="toggleCinemaDarkMode()" title="تحويل المواقع البيضاء للوضع الداكن">🌙 تفعيل</button>
+              </div>
+            </div>
+          </div>
+
+          <button class="nav-ctrl-btn" onclick="startScreenShare()" title="مشاركة الشاشة الحية مع الصوت">🖥️ بث</button>
+          <button class="nav-ctrl-btn fav-nav-btn" onclick="addCurrentToFavorites()" title="حفظ الفيلم الحالي في المفضلة">❤️</button>
+        </div>
+
+        <!-- شريط الوصول السريع للمواقع المحفوظة (Quick Access Bookmarks) -->
+        <div class="quick-access-bar" id="quickAccessBar">
+          <div class="quick-access-label">
+            <span class="quick-icon">📌</span>
+            <span>وصول سريع:</span>
+          </div>
+          <div class="quick-access-list" id="quickAccessList">
+            <!-- يتم تعبئة المواقع المحفوظة تلقائياً من الذاكرة -->
+          </div>
+          <button class="quick-add-btn" onclick="addCurrentToQuickAccess()" title="حفظ الموقع الحالي في شريط الوصول السريع">
+            <span>➕</span> حفظ الحالي
+          </button>
+        </div>
+
+        <!-- مساحة عرض شاشة المتصفح الافتراضي التفاعلي -->
+        <div class="browser-viewport-container" id="browserContainer" tabindex="0">
+          <!-- إضاءة السينما المحيطية بخطوط رأسية ناعمة (Vertical Ambient Lines) -->
+          <div class="ambient-glow" id="ambientGlow">
+            <div class="ambient-lines-grid" id="ambientLinesGrid">
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+            </div>
+          </div>
+          <canvas id="browserCanvas" width="1920" height="1080"></canvas>
+          
+          <!-- طبقة عرض الترجمة العربية السينمائية الطافية فوق الكانفاس -->
+          <div class="cinema-subtitle-overlay" id="cinemaSubOverlay"></div>
+
+          <div id="browserLoadingOverlay" class="browser-loading">
+            <div class="spinner"></div>
+            <span>جاري تشغيل المتصفح الافتراضي...</span>
+          </div>
+
+          <!-- شريط التحكم السينمائي العائم (تقديم، تأخير، تشغيل، صورة مصغرة، ملء الشاشة) -->
+          <div class="cinema-playback-bar" id="browserPlaybackBar">
+            <button class="playback-btn" onclick="sendBrowserMedia('seek-backward', 10)" title="تأخير 10 ثواني (⏪ 10s)">
+              ⏪ 10ث
+            </button>
+            <button class="playback-btn play-pause-btn" onclick="sendBrowserMedia('play-pause')" title="تشغيل / إيقاف مؤقت (Space)">
+              ⏯️ تشغيل / إيقاف
+            </button>
+            <button class="playback-btn" onclick="sendBrowserMedia('seek-forward', 10)" title="تقديم 10 ثواني (⏩ 10s)">
+              ⏩ 10ث
+            </button>
+            <button class="playback-btn" onclick="sendBrowserMedia('toggle-mute')" title="كتم / تشغيل الصوت (M)">
+              🔊 الصوت
+            </button>
+            <div class="playback-divider"></div>
+            <button class="playback-btn sub-toggle-btn" onclick="openSubtitlePanel()" title="الترجمة العربية التلقائية وتزامن التوقيت">
+              📝 الترجمة
+            </button>
+            <button class="playback-btn fav-btn" onclick="addCurrentToFavorites()" title="حفظ الفيلم الحالي في مكتبتي المفضلة">
+              ❤️ حفظ الفيلم
+            </button>
+            <button class="playback-btn pip-btn" onclick="togglePictureInPicture()" title="شاشة مصغرة تطفو خارج المتصفح (Picture-in-Picture)">
+              📺 شاشة مصغرة (PiP)
+            </button>
+            <button class="playback-btn fullscreen-btn" onclick="toggleFullscreen()" title="ملء الشاشة بالكامل (Fullscreen)">
+              ⛶ ملء الشاشة
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. واجهة مشغل الفيديو المباشر -->
+      <div class="player-view" id="playerView">
+        <div class="player-toolbar">
+          <input type="text" id="videoUrlInput" placeholder="أدخل رابط ملف فيديو مباشر (MP4 / WebM / M3U8)..." value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">
+          <button class="btn-primary" onclick="applyVideoUrl()">تشغيل وتزامن 🎬</button>
+          <button class="btn-secondary" onclick="document.getElementById('localFileInput').click()">📁 ملف محلي</button>
+          <input type="file" id="localFileInput" accept="video/*" style="display:none;" onchange="handleLocalFile(event)">
+          <button class="btn-secondary" onclick="document.getElementById('subtitleFileInput').click()">💬 ترجمة SRT</button>
+          <input type="file" id="subtitleFileInput" accept=".srt,.vtt" style="display:none;" onchange="handleSubtitleFile(event)">
+          <button class="btn-secondary" onclick="togglePictureInPicture()" title="شاشة مصغرة">📺 مصغرة</button>
+          <button class="btn-secondary" onclick="toggleFullscreen()" title="ملء الشاشة">⛶ ملء الشاشة</button>
+        </div>
+
+        <div class="player-container">
+          <div class="ambient-glow">
+            <div class="ambient-lines-grid">
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+              <span class="ambient-line"></span>
+            </div>
+          </div>
+          <video id="cinemaPlayer" controls playsinline crossorigin="anonymous">
+            <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+          </video>
+        </div>
+      </div>
+
+      <!-- طبقة التفاعلات الطافية والإشعارات -->
+      <div class="floating-reactions-box" id="reactionsBox"></div>
+      <div class="sync-toast" id="syncToast"></div>
+    </section>
+
+    <!-- القائمة الجانبية: الدردشة، الروم الصوتي، الترجمة، الحضور -->
+    <aside class="cinema-sidebar">
+      <div class="sidebar-tabs">
+        <button class="tab-btn active" id="tabBtnChat" onclick="switchSidebarTab('chat')">💬 الدردشة</button>
+        <button class="tab-btn" id="tabBtnVoice" onclick="switchSidebarTab('voice')">🎙️ الروم (<span id="voiceCountBadge">0</span>)</button>
+        <button class="tab-btn" id="tabBtnSubtitles" onclick="switchSidebarTab('subtitles')">📝 الترجمة</button>
+        <button class="tab-btn" id="tabBtnUsers" onclick="switchSidebarTab('users')">👥 الحضور (<span id="usersCountBadge">1</span>)</button>
+      </div>
+
+      <!-- 1. تبويب الدردشة الحية -->
+      <div class="tab-content active" id="tabContentChat">
+        <div class="chat-messages" id="chatMessages"></div>
+
+        <div class="reactions-bar">
+          <button class="reaction-btn" onclick="sendReaction('🍿')" title="فشار">🍿</button>
+          <button class="reaction-btn" onclick="sendReaction('😂')" title="ضحك">😂</button>
+          <button class="reaction-btn" onclick="sendReaction('❤️')" title="قلب">❤️</button>
+          <button class="reaction-btn" onclick="sendReaction('😱')" title="صدمة">😱</button>
+          <button class="reaction-btn" onclick="sendReaction('🔥')" title="حماس">🔥</button>
+          <button class="reaction-btn" onclick="sendReaction('👏')" title="تصفيق">👏</button>
+        </div>
+
+        <div class="chat-input-bar">
+          <input type="text" id="chatInput" placeholder="اكتب رسالة للسهرة..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+          <button class="btn-primary" onclick="sendChatMessage()">إرسال</button>
+        </div>
+      </div>
+
+      <!-- 2. تبويب الروم الصوتي المباشر (WebRTC Live Voice) -->
+      <div class="tab-content" id="tabContentVoice">
+        <div class="voice-tab-panel">
+          <div class="voice-status-card" id="voiceStatusCard">
+            <div class="voice-status-info">
+              <span class="voice-indicator-dot" id="voiceIndicatorDot"></span>
+              <div>
+                <div class="voice-status-title" id="voiceStatusTitle">الروم الصوتي غير متصل</div>
+                <div class="voice-status-sub" id="voiceStatusSub">اضغط انضمام للتحدث بصوتك مباشرة مع الأصدقاء</div>
+              </div>
+            </div>
+            <button class="btn-primary voice-main-action-btn" id="voiceMainActionBtn" onclick="toggleVoiceRoom()">
+              🎙️ انضمام للروم الصوتي
+            </button>
+          </div>
+
+          <!-- قائمة الأعضاء في الروم الصوتي مع مؤشرات التحدث الحية -->
+          <div class="voice-section-title">المتصلون بالصوت (<span id="voiceConnectedCount">0</span>):</div>
+          <div class="voice-members-list" id="voiceMembersList">
+            <div class="voice-empty-state" id="voiceEmptyState">
+              <span class="empty-icon">🎙️</span>
+              <p>لا يوجد أحد في الروم الصوتي حالياً.<br>انقر على انضمام لتكون أول المتحدثين!</p>
+            </div>
+          </div>
+
+          <!-- عناصر التحكم بالمايك والسماعة -->
+          <div class="voice-controls-dock" id="voiceControlsDock">
+            <button class="voice-dock-btn" id="dockMuteBtn" onclick="toggleVoiceMute()" title="كتم / تشغيل المايك">
+              <span class="dock-icon">🎙️</span>
+              <span id="dockMuteLabel">المايك يعمل</span>
+            </button>
+            <button class="voice-dock-btn" id="dockDeafenBtn" onclick="toggleVoiceDeafen()" title="كتم صوت الحضور">
+              <span class="dock-icon">🎧</span>
+              <span id="dockDeafenLabel">السماعة تعمل</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. تبويب الترجمة التلقائية الذكية (Auto Subtitles & Sync) -->
+      <div class="tab-content" id="tabContentSubtitles">
+        <div class="subtitles-tab-panel">
+          <div class="sub-search-box">
+            <div class="sub-search-input-group">
+              <input type="text" id="subSearchInput" placeholder="اكتب اسم الفيلم للبحث عن ترجمته العربية..." onkeypress="if(event.key==='Enter') searchArabicSubtitles()">
+              <button class="btn-primary" onclick="searchArabicSubtitles()">بحث 🔍</button>
+            </div>
+            <button class="sub-auto-detect-btn" onclick="autoDetectMovieSubtitle()" title="استخراج اسم الفيلم تلقائياً من الصفحة الحالية">
+              ⚡ كشف الفيلم الحالي والترجمة تلقائياً
+            </button>
+          </div>
+
+          <!-- الترجمة المفعلة حالياً -->
+          <div class="active-sub-card hidden" id="activeSubCard">
+            <div class="active-sub-header">
+              <span class="active-sub-badge">🟢 مفعّلة حالياً</span>
+              <button class="active-sub-remove-btn" onclick="removeActiveSubtitle()" title="إلغاء الترجمة">✕</button>
+            </div>
+            <h4 class="active-sub-title" id="activeSubTitle">...</h4>
+
+            <!-- أزرار ضبط توقيت وتزامن الترجمة -->
+            <div class="sub-sync-controls">
+              <span class="sync-label">مزامنة التوقيت:</span>
+              <div class="sync-btn-group">
+                <button class="sync-btn" onclick="adjustSubtitleOffset(-0.5)" title="تأخير نصف ثانية">⏪ -0.5ث</button>
+                <span class="sync-offset-val" id="subOffsetVal">0.0ث</span>
+                <button class="sync-btn" onclick="adjustSubtitleOffset(0.5)" title="تقديم نصف ثانية">+0.5ث ⏩</button>
+                <button class="sync-btn reset-btn" onclick="resetSubtitleOffset()" title="إعادة ضبط التوقيت">🔄 0ث</button>
+              </div>
+            </div>
+
+            <!-- تخصيص مظهر الترجمة -->
+            <div class="sub-appearance-row">
+              <div class="sub-pref-group">
+                <label>الحجم:</label>
+                <select id="subFontSizeSelect" onchange="changeSubFontSize(this.value)">
+                  <option value="18px">صغير (18px)</option>
+                  <option value="22px" selected>متوسط (22px)</option>
+                  <option value="28px">كبير سينمائي (28px)</option>
+                </select>
+              </div>
+              <div class="sub-pref-group">
+                <label>اللون:</label>
+                <select id="subColorSelect" onchange="changeSubColor(this.value)">
+                  <option value="#ffeb3b" selected>أصفر سينمائي 🎬</option>
+                  <option value="#ffffff">أبيض كريستال 💎</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- نتائج البحث عن الترجمات -->
+          <div class="sub-results-header">
+            <span>ملفات الترجمة المتاحة:</span>
+            <span id="subResultsCount" style="color: var(--text-muted); font-size: 11px;"></span>
+          </div>
+          <div class="sub-results-list" id="subResultsList">
+            <div class="sub-empty-hint">
+              <span class="empty-icon">📝</span>
+              <p>اضغط على زر الكشف التلقائي أو اكتب اسم الفيلم لجلب أفضل الترجمات العربية المتزامنة فوراً.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. تبويب الحضور -->
+      <div class="tab-content" id="tabContentUsers">
+        <div class="users-list" id="usersList"></div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- نافذة الترحيب -->
+  <div class="modal-overlay" id="welcomeModal">
+    <div class="modal-box">
+      <div class="modal-logo">🍿</div>
+      <h2 style="font-size:20px; font-weight:800;">سهرة بلس | متصفح السينما المفتوح</h2>
+      <p style="font-size:13px; color:var(--text-secondary); line-height:1.5;">متصفح حقيقي متزامن ومفتوح لجميع مواقع الإنترنت والأفلام واليوتيوب بنمط Hyperbeam.</p>
+
+      <div style="display:flex; flex-direction:column; gap:14px; text-align:right;">
+        <div>
+          <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:8px;">اختر شخصيتك السينمائية:</label>
+          <div class="avatar-picker" id="avatarPicker">
+            <span class="avatar-opt selected" onclick="selectAvatar('🍿', this)">🍿</span>
+            <span class="avatar-opt" onclick="selectAvatar('🎬', this)">🎬</span>
+            <span class="avatar-opt" onclick="selectAvatar('🐱', this)">🐱</span>
+            <span class="avatar-opt" onclick="selectAvatar('👑', this)">👑</span>
+            <span class="avatar-opt" onclick="selectAvatar('🚀', this)">🚀</span>
+            <span class="avatar-opt" onclick="selectAvatar('🎮', this)">🎮</span>
+            <span class="avatar-opt" onclick="selectAvatar('🦊', this)">🦊</span>
+            <span class="avatar-opt" onclick="selectAvatar('🕶️', this)">🕶️</span>
+          </div>
+          <input type="hidden" id="selectedAvatarInput" value="🍿">
+        </div>
+        <div>
+          <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">اسمك في السهرة:</label>
+          <input type="text" id="usernameInput" class="modal-input" placeholder="اسمك المستعار..." autofocus>
+        </div>
+        <div>
+          <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">رمز القاعة:</label>
+          <input type="text" id="customRoomInput" class="modal-input" placeholder="مثال: sahra-2026">
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button class="btn-primary" style="flex:1; padding:12px;" onclick="enterCinema(false)">دخول القاعة 🍿</button>
+        <button class="btn-primary" style="flex:1; padding:12px; background:var(--bg-hover); border:1px solid var(--border-subtle);" onclick="enterCinema(true)">إنشاء قاعة جديدة 🎲</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة مكتبة الأفلام المفضلة (Watchlist Library) -->
+  <div class="modal-overlay" id="favoritesModal" style="display:none;" onclick="if(event.target===this) toggleFavoritesModal()">
+    <div class="library-modal-box">
+      <div class="library-modal-header">
+        <div class="library-modal-title">
+          <span>🎬 مكتبة أفلامي المفضلة</span>
+          <span class="library-counter-badge" id="favModalCounter">0 فيلم</span>
+        </div>
+        <button class="modal-close-btn" onclick="toggleFavoritesModal()" title="إغلاق">✕</button>
+      </div>
+
+      <div class="library-search-box">
+        <input type="text" id="favSearchInput" placeholder="🔍 ابحث في مكتبة أفلامك المحفوظة..." oninput="filterFavorites(this.value)">
+      </div>
+
+      <div class="library-content" id="favLibraryContent">
+        <!-- كروت الأفلام المفضلة مع البوستر يتم توليدها ديناميكياً هنا -->
+      </div>
+    </div>
+  </div>
+
+  <script src="socket.io.min.js"></script>
+  <script src="peerjs.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

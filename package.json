@@ -4,7 +4,7 @@
   "description": "منصة المشاهدة المشتركة والمتصفح السينمائي الافتراضي المفتوح",
   "main": "main.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node server/server.js",
     "build": "echo 'Build OK'",
     "postinstall": "node -e \"if (!process.env.VERCEL) { try { require('child_process').execSync('npx puppeteer install', { stdio: 'inherit' }); } catch(e){} }\"",
     "desktop": "electron main.js"
