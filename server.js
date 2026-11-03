@@ -3,7 +3,22 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
-const virtualBrowser = require('./virtualBrowser');
+let virtualBrowser;
+try {
+  virtualBrowser = require('./virtualBrowser');
+} catch (e) {
+  console.warn('[Server] Virtual browser disabled:', e.message);
+  virtualBrowser = {
+    getOrLaunchBrowser: async () => {},
+    closeBrowser: async () => {},
+    navigate: async () => {},
+    reload: async () => {},
+    goBack: async () => {},
+    goForward: async () => {},
+    dispatchMouse: async () => {},
+    dispatchKey: async () => {}
+  };
+}
 const subtitleService = require('./subtitleService');
 
 const app = express();
@@ -472,9 +487,13 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`===============================================`);
-  console.log(`🍿 Hyperbeam Cinema Sync Server is running!`);
-  console.log(`🚀 URL: http://localhost:${PORT}`);
-  console.log(`===============================================`);
-});
+if (!process.env.VERCEL) {
+  server.listen(PORT, () => {
+    console.log(`===============================================`);
+    console.log(`🍿 Hyperbeam Cinema Sync Server is running!`);
+    console.log(`🚀 URL: http://localhost:${PORT}`);
+    console.log(`===============================================`);
+  });
+}
+
+module.exports = app;

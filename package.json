@@ -5,7 +5,8 @@
   "main": "main.js",
   "scripts": {
     "start": "node server.js",
-    "postinstall": "npx puppeteer install",
+    "build": "echo 'Build OK'",
+    "postinstall": "node -e \"if (!process.env.VERCEL) { try { require('child_process').execSync('npx puppeteer install', { stdio: 'inherit' }); } catch(e){} }\"",
     "desktop": "electron main.js"
   },
   "keywords": [

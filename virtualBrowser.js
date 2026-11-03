@@ -57,10 +57,14 @@ function findChromeExecutable() {
 }
 
 const CHROME_PATH = findChromeExecutable();
-const USER_DATA_DIR = path.join(__dirname, '.chrome-session');
+const USER_DATA_DIR = process.env.VERCEL ? path.join('/tmp', '.chrome-session') : path.join(__dirname, '.chrome-session');
 
-if (!fs.existsSync(USER_DATA_DIR)) {
-  fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(USER_DATA_DIR)) {
+    fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+  }
+} catch (e) {
+  // حماية من الأخطاء في بيئات السيرفرات السحابية ذات نظام الملفات للقراءة فقط (Vercel Read-Only FS)
 }
 
 const roomBrowsers = {};

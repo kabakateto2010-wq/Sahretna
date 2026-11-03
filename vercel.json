@@ -1,5 +1,8 @@
 {
   "version": 2,
-  "outputDirectory": "public",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/server.js" },
+    { "source": "/(.*)", "destination": "/public/$1" }
+  ]
 }
