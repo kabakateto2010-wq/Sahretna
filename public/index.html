@@ -31,13 +31,13 @@
       </div>
     </div>
 
-    <!-- أزرار التبديل المنظمة بين المتصفح ومشغل الفيديو -->
+    <!-- أزرار التبديل المنظمة بين مشغل الفيديو والبث -->
     <div class="mode-switcher">
-      <button class="mode-btn active" id="btnModeBrowser" onclick="switchMainMode('browser')">
-        🌐 المتصفح المفتوح
+      <button class="mode-btn active" id="btnModePlayer" onclick="switchMainMode('player')">
+        🎬 سينما الأفلام والمسلسلات
       </button>
-      <button class="mode-btn" id="btnModePlayer" onclick="switchMainMode('player')">
-        🎬 مشغل الفيديو
+      <button class="mode-btn" id="btnModeBrowser" onclick="switchMainMode('browser')">
+        🌐 بث الشاشة والمواقع
       </button>
     </div>
 
@@ -115,7 +115,7 @@
     <section class="main-stage">
 
       <!-- 1. واجهة المتصفح الافتراضي الحقيقي (Hyperbeam Canvas Engine) -->
-      <div class="browser-view" id="browserView">
+      <div class="browser-view" id="browserView" style="display:none;">
         <!-- شريط أدوات التصفح المنظم والمريح للعين -->
         <div class="browser-nav-bar">
           <div class="nav-btn-group">
@@ -226,12 +226,26 @@
           <div class="cinema-subtitle-overlay" id="cinemaSubOverlay"></div>
 
           <div id="browserLoadingOverlay" class="browser-loading">
-            <div class="spinner"></div>
-            <span>جاري تشغيل المتصفح الافتراضي...</span>
-            <div style="margin-top:16px; background:rgba(18,18,26,0.95); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:14px 20px; max-width:420px; text-align:center;">
-              <p style="font-size:13px; color:#fff; font-weight:700; margin-bottom:6px;">🍿 أنت الآن على رابط Vercel السحابي المباشر</p>
-              <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">لمشاهدة الأفلام واليوتيوب مباشرة مع أصدقائك 24/7:</p>
-              <button class="btn-primary" onclick="switchMainMode('player')" style="padding:8px 18px; font-size:13px;">🎬 الانتقال لمشغل الفيديو الفوري 🍿</button>
+            <div id="browserSpinner" class="spinner"></div>
+            <span id="browserSpinnerText">جاري تشغيل المتصفح الافتراضي...</span>
+            <div id="browserVercelCard" style="display:none; margin-top:16px; background:rgba(18,18,26,0.96); border:1px solid rgba(255,255,255,0.14); border-radius:18px; padding:24px 28px; max-width:480px; text-align:center; box-shadow: 0 16px 40px rgba(0,0,0,0.7);">
+              <div style="font-size:36px; margin-bottom:8px;">🌐</div>
+              <h3 style="font-size:18px; color:#fff; font-weight:800; margin-bottom:8px;">تصفح أي موقع مع أصدقائك في القاعة</h3>
+              <p style="font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:18px;">
+                أنت الآن في النسخة السحابية المباشرة (Vercel) التي تعمل 24 ساعة بدون انقطاع وبأقل استهلاك للإنترنت.<br>
+                لبث أي موقع تريده (YouTube, EgyDead, Netflix) مع الصوت المباشر لأصدقائك:
+              </p>
+              <div style="display:flex; flex-direction:column; gap:10px; width:100%; margin:0 auto;">
+                <button class="btn-primary" onclick="startScreenShare()" style="padding:13px 20px; font-size:14px; font-weight:700; background:linear-gradient(135deg, #e50914, #ff334b); border:none; box-shadow:0 6px 20px rgba(229,9,20,0.4); display:flex; align-items:center; justify-content:center; gap:8px;">
+                  <span>🖥️</span> ابدأ بث أي تبويب أو شاشة مع الصوت
+                </button>
+                <button class="btn-secondary" onclick="switchMainMode('player')" style="padding:11px 18px; font-size:13px; background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.18); color:#fff;">
+                  🎬 الانتقال إلى مشغل الأفلام والمسلسلات 🍿
+                </button>
+              </div>
+              <div style="margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08); font-size:12px; color:var(--text-muted); line-height:1.5;">
+                💡 <b>المتصفح التفاعلي بالماوس المشترك (Hyperbeam):</b> إذا أردت أن يتحكم أصدقاؤك بالماوس والكيبورد في نفس المتصفح، افتح تطبيق <b>سهرة بلس</b> الموجود على سطح مكتب الماك.
+              </div>
             </div>
           </div>
 
@@ -267,7 +281,7 @@
       </div>
 
       <!-- 2. واجهة مشغل الفيديو المباشر -->
-      <div class="player-view" id="playerView">
+      <div class="player-view" id="playerView" style="display:flex;">
         <div class="player-toolbar">
           <input type="text" id="videoUrlInput" placeholder="أدخل رابط ملف فيديو مباشر (MP4 / WebM / M3U8)..." value="https://vjs.zencdn.net/v/oceans.mp4">
           <button class="btn-primary" onclick="applyVideoUrl()">تشغيل وتزامن 🎬</button>

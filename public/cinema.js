@@ -46,7 +46,7 @@ let currentUsername = '';
 let isHost = false;
 let hostOnlyControl = false;
 let isSyncing = false;
-let currentActiveMode = 'browser';
+let currentActiveMode = 'player';
 
 // عناصر واجهة المستخدم
 const welcomeModal = document.getElementById('welcomeModal');
@@ -221,6 +221,7 @@ function initP2PRoom(roomId, username, avatar) {
       path: '/',
       secure: true
     });
+    attachPeerCallHandler(p2pPeer);
   } catch (err) {
     console.warn('[P2P] خطأ في إنشاء Peer:', err);
     return;
@@ -243,6 +244,7 @@ function initP2PRoom(roomId, username, avatar) {
         path: '/',
         secure: true
       });
+      attachPeerCallHandler(p2pPeer);
       p2pPeer.on('open', () => {
         isHost = false;
         selfUser.isHost = false;
@@ -260,8 +262,34 @@ function initP2PRoom(roomId, username, avatar) {
   });
 }
 
+function attachPeerCallHandler(peer) {
+  if (!peer) return;
+  peer.on('call', (call) => {
+    console.log('[P2P] استقبال بث مباشر من:', call.peer);
+    call.answer(); // لا نرسل كاميرا، فقط نستقبل
+    call.on('stream', (remoteStream) => {
+      console.log('[P2P] تم استقبال تيار البث الحي بنجاح');
+      switchMainMode('player');
+      cinemaPlayer.srcObject = remoteStream;
+      cinemaPlayer.play().catch(e => console.warn('Autoplay error:', e));
+      showToast('🖥️ صديقك بدأ بث الشاشة والصوت مباشرة!');
+    });
+  });
+}
+
 function setupP2PConnection(conn) {
   p2pConnections.push(conn);
+
+  // إذا كان هناك بث شاشة نشط بالفعل، نتصل بالصديق المنضم حديثاً
+  if (activeScreenStream && p2pPeer) {
+    setTimeout(() => {
+      try {
+        p2pPeer.call(conn.peer, activeScreenStream);
+      } catch (e) {
+        console.warn('[P2P] Error calling new peer with stream:', e);
+      }
+    }, 1200);
+  }
 
   conn.on('open', () => {
     console.log('[P2P] اتصال صديق جديد:', conn.peer);
@@ -340,6 +368,19 @@ function handleP2PIncomingData(data, conn) {
       if (data.emoji) {
         createFloatingReaction(data.emoji);
         if (isHost) broadcastP2P(data);
+      }
+      break;
+
+    case 'screen-share-started':
+      switchMainMode('player');
+      showToast('🖥️ بدأ الصديق بث الشاشة والصوت...');
+      break;
+
+    case 'screen-share-ended':
+      cinemaPlayer.srcObject = null;
+      showToast('🛑 انتهت مشاركة الشاشة');
+      if (cinemaPlayer.src) {
+        cinemaPlayer.play().catch(() => {});
       }
       break;
 
@@ -549,15 +590,39 @@ function changeBrowserQuality(quality) {
 function applyBrowserUrl() {
   const url = browserUrlInput.value.trim();
   if (!url) return;
-  browserLoadingOverlay.classList.remove('hidden');
-  socket.emit('browser-navigate', { roomId: currentRoomId, url: url });
+
+  if (socket && socket.connected) {
+    browserLoadingOverlay.classList.remove('hidden');
+    socket.emit('browser-navigate', { roomId: currentRoomId, url: url });
+    return;
+  }
+
+  // إذا كان الرابط فيديو أو يوتيوب، نشغله فوراً في مشغل الفيديو
+  if (url.includes('.mp4') || url.includes('.m3u8') || url.includes('.webm') || url.includes('youtube.com') || url.includes('youtu.be')) {
+    playPresetVideo(url, 'الفيديو المطلوب');
+    return;
+  }
+
+  showToast('🖥️ جاري فتح اختيار التبويب لبث الموقع مع الصوت لأصحابك...', 4000);
+  startScreenShare();
 }
 
 function browserNavigateTo(url) {
   browserUrlInput.value = url;
-  browserLoadingOverlay.classList.remove('hidden');
-  socket.emit('browser-navigate', { roomId: currentRoomId, url: url });
-  updateQuickAccessActive(url);
+  if (socket && socket.connected) {
+    browserLoadingOverlay.classList.remove('hidden');
+    socket.emit('browser-navigate', { roomId: currentRoomId, url: url });
+    updateQuickAccessActive(url);
+    return;
+  }
+
+  if (url.includes('.mp4') || url.includes('.m3u8') || url.includes('.webm') || url.includes('youtube.com') || url.includes('youtu.be')) {
+    playPresetVideo(url, 'الفيديو المباشر');
+    return;
+  }
+
+  showToast('🖥️ جاري فتح اختيار التبويب لبث الموقع مع الصوت لأصحابك...', 4000);
+  startScreenShare();
 }
 
 function browserGoBack() {
@@ -697,13 +762,37 @@ function switchMainMode(mode) {
     playerView.style.display = 'none';
     btnModeBrowser.classList.add('active');
     btnModePlayer.classList.remove('active');
+    updateBrowserOverlayState();
   } else {
     browserView.style.display = 'none';
     playerView.style.display = 'flex';
     btnModeBrowser.classList.remove('active');
     btnModePlayer.classList.add('active');
   }
-  socket.emit('switch-mode', { roomId: currentRoomId, mode });
+  if (socket && socket.connected) {
+    socket.emit('switch-mode', { roomId: currentRoomId, mode });
+  }
+}
+
+function updateBrowserOverlayState() {
+  const isConnected = socket && socket.connected;
+  const browserSpinner = document.getElementById('browserSpinner');
+  const browserSpinnerText = document.getElementById('browserSpinnerText');
+  const browserVercelCard = document.getElementById('browserVercelCard');
+
+  if (isConnected) {
+    if (browserSpinner) browserSpinner.style.display = 'block';
+    if (browserSpinnerText) {
+      browserSpinnerText.style.display = 'block';
+      browserSpinnerText.textContent = 'جاري تشغيل المتصفح الافتراضي...';
+    }
+    if (browserVercelCard) browserVercelCard.style.display = 'none';
+  } else {
+    // على فيرسيل أو بدون سيرفر محلي
+    if (browserSpinner) browserSpinner.style.display = 'none';
+    if (browserSpinnerText) browserSpinnerText.style.display = 'none';
+    if (browserVercelCard) browserVercelCard.style.display = 'block';
+  }
 }
 
 // ==============================================================
@@ -801,19 +890,45 @@ function handleLocalFile(e) {
   showToast(`📁 تم تشغيل الملف المحلي: ${file.name}`);
 }
 
+let activeScreenStream = null;
+
 async function startScreenShare() {
   try {
-    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { cursor: 'always' },
+      audio: true
+    });
+    activeScreenStream = stream;
     switchMainMode('player');
     cinemaPlayer.srcObject = stream;
-    cinemaPlayer.play();
-    showToast('🖥️ تم بدء مشاركة الشاشة بصوت النظام!');
+    cinemaPlayer.play().catch(() => {});
+    showToast('🖥️ بدأ بث الشاشة وصوت النظام بنجاح!');
+
+    // بث الشاشة لجميع الأصدقاء المتصلين بـ PeerJS عبر WebRTC
+    if (p2pPeer && p2pConnections.length > 0) {
+      p2pConnections.forEach(conn => {
+        try {
+          p2pPeer.call(conn.peer, stream);
+        } catch (e) {
+          console.warn('[P2P] call error:', e);
+        }
+      });
+      broadcastP2P({ type: 'screen-share-started' });
+    }
+
     stream.getVideoTracks()[0].onended = () => {
       cinemaPlayer.srcObject = null;
+      activeScreenStream = null;
+      broadcastP2P({ type: 'screen-share-ended' });
       showToast('🛑 تم إنهاء مشاركة الشاشة');
+      if (cinemaPlayer.src) {
+        cinemaPlayer.play().catch(() => {});
+      }
     };
   } catch (err) {
-    showToast('❌ تم إلغاء مشاركة الشاشة');
+    if (err.name !== 'NotAllowedError') {
+      showToast('❌ تعذر تشغيل مشاركة الشاشة');
+    }
   }
 }
 
