@@ -98,11 +98,262 @@ function enterCinema(isNewRoom = false) {
     roomCodeBadge.textContent = `${userAvatar} قاعة: ${currentRoomId}`;
   }
 
-  socket.emit('join-room', {
-    roomId: currentRoomId,
-    username: currentUsername,
-    avatar: userAvatar
+  // محاولة الاتصال بالسيرفر
+  let joinedViaSocket = false;
+  if (socket && socket.connected) {
+    socket.emit('join-room', {
+      roomId: currentRoomId,
+      username: currentUsername,
+      avatar: userAvatar
+    });
+    joinedViaSocket = true;
+  }
+
+  // في حال كان الموقع يعمل عبر Vercel أو السيرفر غير متصل، يتم تفعيل وضع P2P السحابي المباشر فوراً
+  setTimeout(() => {
+    if (!socket || !socket.connected) {
+      console.log('[Cinema] تفعيل وضع P2P السحابي المباشر...');
+      initP2PRoom(currentRoomId, currentUsername, userAvatar);
+    }
+  }, joinedViaSocket ? 2000 : 300);
+}
+
+// ==============================================================
+// 🌐 محرك سهرة بلس السحابي المستقل (P2P Cloud Watch Party)
+// يتيح تشغيل السهرة فوراً عبر Vercel 24/7 بدون الحاجة لأي خادم
+// ==============================================================
+let p2pPeer = null;
+let p2pConnections = [];
+let isP2PActive = false;
+let p2pUsers = [];
+
+function broadcastP2P(data) {
+  p2pConnections.forEach(conn => {
+    if (conn && conn.open) {
+      try { conn.send(data); } catch (e) {}
+    }
   });
+}
+
+function updateUsersListUI(users) {
+  if (!usersCountBadge || !usersList) return;
+  usersCountBadge.innerText = users.length;
+  usersList.innerHTML = users.map(u => `
+    <div class="user-card">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span>${u.avatar || '🍿'}</span>
+        <span class="user-name">${escapeHtml(u.name)} ${(u.isSelf || u.id === socket?.id) ? '(أنت)' : ''}</span>
+      </div>
+      ${u.isHost ? '<span class="host-badge">مضيف 👑</span>' : ''}
+    </div>
+  `).join('');
+}
+
+function initP2PRoom(roomId, username, avatar) {
+  if (isP2PActive) return;
+  isP2PActive = true;
+
+  const selfUser = {
+    id: 'user_' + Math.random().toString(36).substring(2, 7),
+    name: username,
+    avatar: avatar,
+    isHost: true,
+    isSelf: true
+  };
+  p2pUsers = [selfUser];
+  isHost = true;
+  updateUsersListUI(p2pUsers);
+
+  // إرسال رسالة ترحيبية فورية في الدردشة
+  appendMessage({
+    id: 'sys_' + Date.now(),
+    system: true,
+    text: `🍿 مرحباً بك في سهرة بلس (القاعة السحابية: ${roomId})`,
+    time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+  });
+
+  // التبديل التلقائي إلى مشغل الفيديو السحابي الجاهز للعمل فوراً
+  switchMainMode('player');
+  showToast('🍿 تم تشغيل السهرة السحابية فوراً! اختر أي فيديو لبدء المشاهدة مع الأصدقاء.');
+
+  if (typeof Peer === 'undefined') {
+    console.warn('[P2P] مكتبة PeerJS غير متوفرة');
+    return;
+  }
+
+  const cleanRoom = (roomId || 'cinema-main').toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'cinema';
+  const hostPeerId = `sahretna-room-${cleanRoom}-host`;
+
+  try {
+    p2pPeer = new Peer(hostPeerId, {
+      host: '0.peerjs.com',
+      port: 443,
+      path: '/',
+      secure: true
+    });
+  } catch (err) {
+    console.warn('[P2P] خطأ في إنشاء Peer:', err);
+    return;
+  }
+
+  p2pPeer.on('open', (id) => {
+    console.log('[P2P] أصبحت مضيف القاعة السحابية:', id);
+    isHost = true;
+    selfUser.isHost = true;
+    updateUsersListUI(p2pUsers);
+  });
+
+  p2pPeer.on('error', (err) => {
+    if (err.type === 'unavailable-id') {
+      console.log('[P2P] القاعة بها مضيف بالفعل، جاري الانضمام...');
+      const guestId = `sahretna-room-${cleanRoom}-guest-${Math.random().toString(36).substring(2, 7)}`;
+      p2pPeer = new Peer(guestId, {
+        host: '0.peerjs.com',
+        port: 443,
+        path: '/',
+        secure: true
+      });
+      p2pPeer.on('open', () => {
+        isHost = false;
+        selfUser.isHost = false;
+        const conn = p2pPeer.connect(hostPeerId, {
+          metadata: { name: username, avatar: avatar }
+        });
+        setupP2PConnection(conn);
+        showToast('🍿 تم الانضمام لقاعة السهرة السحابية بنجاح!');
+      });
+    }
+  });
+
+  p2pPeer.on('connection', (conn) => {
+    setupP2PConnection(conn);
+  });
+}
+
+function setupP2PConnection(conn) {
+  p2pConnections.push(conn);
+
+  conn.on('open', () => {
+    console.log('[P2P] اتصال صديق جديد:', conn.peer);
+    const avatarInput = document.getElementById('selectedAvatarInput');
+    conn.send({
+      type: 'user-joined',
+      user: {
+        id: conn.peer,
+        name: currentUsername,
+        avatar: avatarInput ? avatarInput.value : '🍿',
+        isHost: isHost
+      }
+    });
+
+    if (isHost && cinemaPlayer) {
+      conn.send({
+        type: 'sync-state',
+        videoState: {
+          url: cinemaPlayer.currentSrc || cinemaPlayer.src,
+          currentTime: cinemaPlayer.currentTime,
+          isPlaying: !cinemaPlayer.paused
+        },
+        users: p2pUsers
+      });
+    }
+  });
+
+  conn.on('data', (data) => {
+    handleP2PIncomingData(data, conn);
+  });
+
+  conn.on('close', () => {
+    p2pConnections = p2pConnections.filter(c => c !== conn);
+    p2pUsers = p2pUsers.filter(u => u.id !== conn.peer);
+    updateUsersListUI(p2pUsers);
+  });
+}
+
+function handleP2PIncomingData(data, conn) {
+  if (!data || !data.type) return;
+
+  switch (data.type) {
+    case 'user-joined':
+      if (data.user) {
+        if (!p2pUsers.some(u => u.name === data.user.name)) {
+          p2pUsers.push(data.user);
+          updateUsersListUI(p2pUsers);
+          appendMessage({
+            id: 'sys_' + Date.now(),
+            system: true,
+            text: `انضم ${data.user.name} إلى قاعة السهرة 🍿`,
+            time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+          });
+        }
+        if (isHost) {
+          broadcastP2P({ type: 'user-list', users: p2pUsers });
+        }
+      }
+      break;
+
+    case 'user-list':
+      if (Array.isArray(data.users)) {
+        p2pUsers = data.users;
+        updateUsersListUI(p2pUsers);
+      }
+      break;
+
+    case 'chat-message':
+      if (data.msg) {
+        appendMessage(data.msg);
+        if (isHost) broadcastP2P(data);
+      }
+      break;
+
+    case 'reaction':
+      if (data.emoji) {
+        createFloatingReaction(data.emoji);
+        if (isHost) broadcastP2P(data);
+      }
+      break;
+
+    case 'video-action':
+      if (cinemaPlayer) {
+        isSyncing = true;
+        if (data.url && cinemaPlayer.src !== data.url) {
+          cinemaPlayer.src = data.url;
+        }
+        if (typeof data.time === 'number') {
+          if (Math.abs(cinemaPlayer.currentTime - data.time) > 1.5) {
+            cinemaPlayer.currentTime = data.time;
+          }
+        }
+        if (data.action === 'play') {
+          cinemaPlayer.play().catch(() => {});
+        } else if (data.action === 'pause') {
+          cinemaPlayer.pause();
+        }
+        setTimeout(() => { isSyncing = false; }, 400);
+        if (isHost) broadcastP2P(data);
+      }
+      break;
+
+    case 'sync-state':
+      if (data.videoState && cinemaPlayer) {
+        isSyncing = true;
+        if (data.videoState.url) cinemaPlayer.src = data.videoState.url;
+        if (typeof data.videoState.currentTime === 'number') {
+          cinemaPlayer.currentTime = data.videoState.currentTime;
+        }
+        if (data.videoState.isPlaying) {
+          cinemaPlayer.play().catch(() => {});
+        } else {
+          cinemaPlayer.pause();
+        }
+        setTimeout(() => { isSyncing = false; }, 400);
+      }
+      if (Array.isArray(data.users)) {
+        p2pUsers = data.users;
+        updateUsersListUI(p2pUsers);
+      }
+      break;
+  }
 }
 
 function toggleRoomSettingsMenu(e) {
@@ -462,17 +713,29 @@ function updateLockScreenMediaMetadata(title = 'سهرة بلس | بث الفي�
 cinemaPlayer.addEventListener('play', () => {
   updateLockScreenMediaMetadata();
   if (isSyncing) return;
-  socket.emit('video-action', { roomId: currentRoomId, action: 'play', time: cinemaPlayer.currentTime });
+  if (isP2PActive) {
+    broadcastP2P({ type: 'video-action', action: 'play', time: cinemaPlayer.currentTime });
+  } else {
+    socket.emit('video-action', { roomId: currentRoomId, action: 'play', time: cinemaPlayer.currentTime });
+  }
 });
 
 cinemaPlayer.addEventListener('pause', () => {
   if (isSyncing) return;
-  socket.emit('video-action', { roomId: currentRoomId, action: 'pause', time: cinemaPlayer.currentTime });
+  if (isP2PActive) {
+    broadcastP2P({ type: 'video-action', action: 'pause', time: cinemaPlayer.currentTime });
+  } else {
+    socket.emit('video-action', { roomId: currentRoomId, action: 'pause', time: cinemaPlayer.currentTime });
+  }
 });
 
 cinemaPlayer.addEventListener('seeked', () => {
   if (isSyncing) return;
-  socket.emit('video-action', { roomId: currentRoomId, action: 'seek', time: cinemaPlayer.currentTime });
+  if (isP2PActive) {
+    broadcastP2P({ type: 'video-action', action: 'seek', time: cinemaPlayer.currentTime });
+  } else {
+    socket.emit('video-action', { roomId: currentRoomId, action: 'seek', time: cinemaPlayer.currentTime });
+  }
 });
 
 function applyVideoUrl() {
@@ -481,7 +744,11 @@ function applyVideoUrl() {
   isSyncing = true;
   cinemaPlayer.src = url;
   cinemaPlayer.play().catch(() => {});
-  socket.emit('video-action', { roomId: currentRoomId, action: 'play', sourceType: 'url', url: url, time: 0 });
+  if (isP2PActive) {
+    broadcastP2P({ type: 'video-action', action: 'play', url: url, time: 0 });
+  } else {
+    socket.emit('video-action', { roomId: currentRoomId, action: 'play', sourceType: 'url', url: url, time: 0 });
+  }
   setTimeout(() => { isSyncing = false; }, 400);
 }
 
@@ -738,18 +1005,7 @@ socket.on('action-denied', (data) => showToast(`🔒 ${data.reason}`));
 socket.on('room-settings-updated', (s) => { hostOnlyControl = s.hostOnlyControl; updateHostControlsUI(); });
 socket.on('promoted-to-host', () => { isHost = true; updateHostControlsUI(); showToast('👑 أصبحت أنت المضيف للقاعة!'); });
 
-socket.on('user-list', (users) => {
-  usersCountBadge.innerText = users.length;
-  usersList.innerHTML = users.map(u => `
-    <div class="user-card">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span>${u.avatar || '🍿'}</span>
-        <span class="user-name">${escapeHtml(u.name)} ${u.id === socket.id ? '(أنت)' : ''}</span>
-      </div>
-      ${u.isHost ? '<span class="host-badge">مضيف 👑</span>' : ''}
-    </div>
-  `).join('');
-});
+socket.on('user-list', (users) => updateUsersListUI(users));
 
 socket.on('new-message', (msg) => appendMessage(msg));
 socket.on('floating-reaction', ({ emoji }) => createFloatingReaction(emoji));
@@ -761,12 +1017,26 @@ socket.on('floating-reaction', ({ emoji }) => createFloatingReaction(emoji));
 function sendChatMessage() {
   const text = chatInput.value.trim();
   if (!text) return;
-  socket.emit('chat-message', { roomId: currentRoomId, message: text });
+  const avatarInput = document.getElementById('selectedAvatarInput');
+  const msg = {
+    id: 'msg_' + Date.now(),
+    userId: socket?.id || 'me',
+    user: currentUsername,
+    avatar: avatarInput ? avatarInput.value : '🍿',
+    text: text,
+    time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+  };
+  if (isP2PActive) {
+    appendMessage(msg);
+    broadcastP2P({ type: 'chat-message', msg: msg });
+  } else {
+    socket.emit('chat-message', { roomId: currentRoomId, message: text });
+  }
   chatInput.value = '';
 }
 
 function appendMessage(msg) {
-  const isMine = msg.userId === socket.id;
+  const isMine = msg.userId === socket?.id || msg.userId === 'me';
   const msgEl = document.createElement('div');
   if (msg.system) {
     msgEl.className = 'msg-system';
@@ -787,7 +1057,12 @@ function appendMessage(msg) {
 }
 
 function sendReaction(emoji) {
-  socket.emit('send-reaction', { roomId: currentRoomId, emoji });
+  createFloatingReaction(emoji);
+  if (isP2PActive) {
+    broadcastP2P({ type: 'reaction', emoji });
+  } else {
+    socket.emit('send-reaction', { roomId: currentRoomId, emoji });
+  }
 }
 
 function createFloatingReaction(emoji) {
