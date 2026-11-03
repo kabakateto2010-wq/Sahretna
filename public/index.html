@@ -201,33 +201,15 @@
               <span class="ambient-line"></span>
             </div>
           </div>
-          <canvas id="browserCanvas" width="1920" height="1080"></canvas>
+          <canvas id="browserCanvas" width="1920" height="1080" style="display:none;"></canvas>
+          <iframe id="webBrowserIframe" src="https://www.google.com/webhp?igu=1" allowfullscreen allow="autoplay; encrypted-media; fullscreen" style="display:block;"></iframe>
           
           <!-- طبقة عرض الترجمة العربية السينمائية الطافية فوق الكانفاس -->
           <div class="cinema-subtitle-overlay" id="cinemaSubOverlay"></div>
 
-          <div id="browserLoadingOverlay" class="browser-loading">
+          <div id="browserLoadingOverlay" class="browser-loading hidden">
             <div id="browserSpinner" class="spinner"></div>
-            <span id="browserSpinnerText">جاري تشغيل المتصفح الافتراضي...</span>
-            <div id="browserVercelCard" style="display:none; margin-top:16px; background:rgba(18,18,26,0.96); border:1px solid rgba(255,255,255,0.14); border-radius:18px; padding:24px 28px; max-width:480px; text-align:center; box-shadow: 0 16px 40px rgba(0,0,0,0.7);">
-              <div style="font-size:36px; margin-bottom:8px;">🌐</div>
-              <h3 style="font-size:18px; color:#fff; font-weight:800; margin-bottom:8px;">تصفح أي موقع مع أصدقائك في القاعة</h3>
-              <p style="font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:18px;">
-                أنت الآن في النسخة السحابية المباشرة (Vercel) التي تعمل 24 ساعة بدون انقطاع وبأقل استهلاك للإنترنت.<br>
-                لبث أي موقع تريده (YouTube, EgyDead, Netflix) مع الصوت المباشر لأصدقائك:
-              </p>
-              <div style="display:flex; flex-direction:column; gap:10px; width:100%; margin:0 auto;">
-                <button class="btn-primary" onclick="startScreenShare()" style="padding:13px 20px; font-size:14px; font-weight:700; background:linear-gradient(135deg, #e50914, #ff334b); border:none; box-shadow:0 6px 20px rgba(229,9,20,0.4); display:flex; align-items:center; justify-content:center; gap:8px;">
-                  <span>🖥️</span> ابدأ بث أي تبويب أو شاشة مع الصوت
-                </button>
-                <button class="btn-secondary" onclick="switchMainMode('player')" style="padding:11px 18px; font-size:13px; background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.18); color:#fff;">
-                  🎬 الانتقال إلى مشغل الأفلام والمسلسلات 🍿
-                </button>
-              </div>
-              <div style="margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08); font-size:12px; color:var(--text-muted); line-height:1.5;">
-                💡 <b>المتصفح التفاعلي بالماوس المشترك (Hyperbeam):</b> إذا أردت أن يتحكم أصدقاؤك بالماوس والكيبورد في نفس المتصفح، افتح تطبيق <b>سهرة بلس</b> الموجود على سطح مكتب الماك.
-              </div>
-            </div>
+            <span id="browserSpinnerText">جاري تحميل المتصفح...</span>
           </div>
 
           <!-- شريط التحكم السينمائي العائم (تقديم، تأخير، تشغيل، صورة مصغرة، ملء الشاشة) -->

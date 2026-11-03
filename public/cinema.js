@@ -65,6 +65,7 @@ const browserUrlInput = document.getElementById('browserUrlInput');
 const browserQualitySelect = document.getElementById('browserQualitySelect');
 const browserContainer = document.getElementById('browserContainer');
 const browserCanvas = document.getElementById('browserCanvas');
+const webBrowserIframe = document.getElementById('webBrowserIframe');
 const browserLoadingOverlay = document.getElementById('browserLoadingOverlay');
 const ctx = browserCanvas.getContext('2d');
 
@@ -597,14 +598,41 @@ function applyBrowserUrl() {
     return;
   }
 
-  // إذا كان الرابط فيديو أو يوتيوب، نشغله فوراً في مشغل الفيديو
-  if (url.includes('.mp4') || url.includes('.m3u8') || url.includes('.webm') || url.includes('youtube.com') || url.includes('youtu.be')) {
+  // إذا كان الرابط فيديو مباشر، نشغله فوراً في مشغل الفيديو
+  if (url.includes('.mp4') || url.includes('.m3u8') || url.includes('.webm')) {
     playPresetVideo(url, 'الفيديو المطلوب');
     return;
   }
 
-  showToast('🖥️ جاري فتح اختيار التبويب لبث الموقع مع الصوت لأصحابك...', 4000);
-  startScreenShare();
+  // إذا كان يوتيوب، تضمين مشغل اليوتيوب
+  if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    let videoId = '';
+    if (url.includes('v=')) {
+      videoId = url.split('v=')[1].split('&')[0];
+    } else if (url.includes('youtu.be/')) {
+      videoId = url.split('youtu.be/')[1].split('?')[0];
+    }
+    if (videoId && webBrowserIframe) {
+      webBrowserIframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`;
+      showToast('🎬 تم تشغيل فيديو يوتيوب داخل المتصفح');
+      return;
+    }
+  }
+
+  // إذا كان بحث جوجل أو رابط موقع
+  if (webBrowserIframe) {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      if (url.includes('google.com')) {
+        webBrowserIframe.src = 'https://www.google.com/webhp?igu=1';
+      } else {
+        webBrowserIframe.src = url;
+      }
+    } else {
+      // بحث في جوجل
+      webBrowserIframe.src = `https://www.google.com/search?igu=1&q=${encodeURIComponent(url)}`;
+    }
+    showToast(`🌐 جاري الانتقال إلى: ${url}`);
+  }
 }
 
 function browserNavigateTo(url) {
@@ -616,27 +644,43 @@ function browserNavigateTo(url) {
     return;
   }
 
-  if (url.includes('.mp4') || url.includes('.m3u8') || url.includes('.webm') || url.includes('youtube.com') || url.includes('youtu.be')) {
-    playPresetVideo(url, 'الفيديو المباشر');
-    return;
+  if (webBrowserIframe) {
+    if (url.includes('google.com')) {
+      webBrowserIframe.src = 'https://www.google.com/webhp?igu=1';
+    } else if (url.includes('youtube.com')) {
+      webBrowserIframe.src = 'https://www.youtube-nocookie.com/embed?listType=search&list=trending';
+    } else {
+      webBrowserIframe.src = url;
+    }
+    showToast(`🌐 جاري تصفح: ${url}`);
+    updateQuickAccessActive(url);
   }
-
-  showToast('🖥️ جاري فتح اختيار التبويب لبث الموقع مع الصوت لأصحابك...', 4000);
-  startScreenShare();
 }
 
 function browserGoBack() {
-  socket.emit('browser-back', { roomId: currentRoomId });
+  if (socket && socket.connected) {
+    socket.emit('browser-back', { roomId: currentRoomId });
+  } else if (webBrowserIframe) {
+    try { webBrowserIframe.contentWindow.history.back(); } catch (e) {}
+  }
 }
 
 function browserGoForward() {
-  socket.emit('browser-forward', { roomId: currentRoomId });
+  if (socket && socket.connected) {
+    socket.emit('browser-forward', { roomId: currentRoomId });
+  } else if (webBrowserIframe) {
+    try { webBrowserIframe.contentWindow.history.forward(); } catch (e) {}
+  }
 }
 
 function browserReload() {
-  browserLoadingOverlay.classList.remove('hidden');
-  socket.emit('browser-reload', { roomId: currentRoomId });
-  showToast('🔄 تم تحديث الصفحة');
+  if (socket && socket.connected) {
+    browserLoadingOverlay.classList.remove('hidden');
+    socket.emit('browser-reload', { roomId: currentRoomId });
+  } else if (webBrowserIframe) {
+    webBrowserIframe.src = webBrowserIframe.src;
+  }
+  showToast('🔄 تم تحديث المتصفح');
 }
 
 // حساب إحداثيات الماوس بدقة متناهية وإعادتها دائماً لنسبة 1280x720 المعيارية
@@ -776,22 +820,18 @@ function switchMainMode(mode) {
 
 function updateBrowserOverlayState() {
   const isConnected = socket && socket.connected;
-  const browserSpinner = document.getElementById('browserSpinner');
-  const browserSpinnerText = document.getElementById('browserSpinnerText');
-  const browserVercelCard = document.getElementById('browserVercelCard');
+  const browserLoadingOverlay = document.getElementById('browserLoadingOverlay');
+  const browserCanvas = document.getElementById('browserCanvas');
+  const webBrowserIframe = document.getElementById('webBrowserIframe');
 
   if (isConnected) {
-    if (browserSpinner) browserSpinner.style.display = 'block';
-    if (browserSpinnerText) {
-      browserSpinnerText.style.display = 'block';
-      browserSpinnerText.textContent = 'جاري تشغيل المتصفح الافتراضي...';
-    }
-    if (browserVercelCard) browserVercelCard.style.display = 'none';
+    if (webBrowserIframe) webBrowserIframe.style.display = 'none';
+    if (browserCanvas) browserCanvas.style.display = 'block';
   } else {
-    // على فيرسيل أو بدون سيرفر محلي
-    if (browserSpinner) browserSpinner.style.display = 'none';
-    if (browserSpinnerText) browserSpinnerText.style.display = 'none';
-    if (browserVercelCard) browserVercelCard.style.display = 'block';
+    // على فيرسيل: إظهار متصفح الويب المباشر فوراً
+    if (webBrowserIframe) webBrowserIframe.style.display = 'block';
+    if (browserCanvas) browserCanvas.style.display = 'none';
+    if (browserLoadingOverlay) browserLoadingOverlay.classList.add('hidden');
   }
 }
 

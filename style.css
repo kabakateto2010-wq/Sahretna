@@ -883,15 +883,15 @@ body {
   }
 }
 
-#browserCanvas {
+#browserCanvas,
+#webBrowserIframe {
   max-width: 96%;
   max-height: 94%;
-  width: auto;
-  height: auto;
+  width: 96%;
+  height: 94%;
   aspect-ratio: 16 / 9;
   background: #000;
   cursor: default;
-  display: block;
   z-index: 2;
   border-radius: 6px;
   border: 1px solid rgba(229, 9, 20, 0.28);
@@ -899,13 +899,12 @@ body {
     0 16px 50px rgba(0, 0, 0, 0.95),
     0 0 18px rgba(229, 9, 20, 0.25);
   opacity: var(--canvas-opacity, 1);
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: high-quality;
   transition: opacity 0.2s ease, filter 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 /* الوضع الليلي السينمائي: تحويل المواقع البيضاء الفاقعة إلى دارك مود مريح وفخم */
-#browserCanvas.cinema-dark-invert {
+#browserCanvas.cinema-dark-invert,
+#webBrowserIframe.cinema-dark-invert {
   filter: invert(0.92) hue-rotate(180deg) contrast(1.12) brightness(0.96);
 }
 
