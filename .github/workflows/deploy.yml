@@ -1,0 +1,20 @@
+name: Sync to Hugging Face Spaces
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Push to Hugging Face
+        run: |
+          git config --global user.name "Sahretna-Bot"
+          git config --global user.email "bot@sahretna.com"
+          git push -f https://Sahretna2030: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@huggingface.co/spaces/Sahretna2030/sahretna main
