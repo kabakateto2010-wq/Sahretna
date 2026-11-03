@@ -1876,3 +1876,16 @@ updateFavoritesBadge();
 renderQuickAccess();
 initAmbientBrightness();
 initCanvasVisualControls();
+
+// ==============================================================
+// تسجيل الـ Service Worker لتثبيت التطبيق على الآيفون والأندرويد (PWA)
+// ==============================================================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+      console.log('🍿 [PWA] تم تسجيل خدمة التثبيت المباشر بنجاح على الجهاز:', reg.scope);
+    }).catch((err) => {
+      console.log('⚠️ [PWA] تعذر تسجيل Service Worker:', err);
+    });
+  });
+}
