@@ -2,7 +2,6 @@
   "name": "hyperbeam-cinema-sync",
   "version": "1.0.0",
   "description": "منصة المشاهدة المشتركة والمتصفح السينمائي الافتراضي المفتوح",
-  "main": "main.js",
   "scripts": {
     "start": "node server/server.js",
     "build": "echo 'Build OK'",
