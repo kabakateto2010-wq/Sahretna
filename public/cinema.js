@@ -193,8 +193,8 @@ function initP2PRoom(roomId, username, avatar) {
     time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
   });
 
-  // التبديل التلقائي إلى مشغل الفيديو السحابي الجاهز للعمل فوراً
-  switchMainMode('player');
+  // الإبقاء على وضع المتصفح الافتراضي دائماً
+  switchMainMode('browser');
 
   // تعيين الفيلم التجريبي الافتراضي عالي الجودة
   if (cinemaPlayer) {
