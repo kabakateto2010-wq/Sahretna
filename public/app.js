@@ -2,7 +2,23 @@
 // 🍿 Hyperbeam Engine - Client App (Virtual Browser Streaming)
 // ==============================================================
 
-const socket = io();
+// دعم الاتصال الذكي بالسيرفر عند الاستضافة على Vercel أو النطاقات السحابية
+let socketServerUrl = undefined;
+const initUrlParams = new URLSearchParams(window.location.search);
+if (initUrlParams.get('server')) {
+  socketServerUrl = initUrlParams.get('server');
+  try { localStorage.setItem('sahretna_backend_url', socketServerUrl); } catch (e) {}
+} else if (window.location.hostname.includes('vercel.app')) {
+  try {
+    const saved = localStorage.getItem('sahretna_backend_url');
+    if (saved) socketServerUrl = saved;
+  } catch (e) {}
+}
+
+const socket = io(socketServerUrl || undefined, {
+  transports: ['websocket', 'polling'],
+  reconnectionAttempts: 5
+});
 
 let currentRoomId = '';
 let currentUsername = '';
@@ -78,7 +94,9 @@ function enterCinema(isNewRoom = false) {
   window.history.pushState({ path: newUrl }, '', newUrl);
 
   welcomeModal.style.display = 'none';
-  roomCodeBadge.innerHTML = `<span>${userAvatar}</span><span>قاعة: ${currentRoomId}</span><small style="opacity:0.7">(نسخ الرابط)</small>`;
+  if (roomCodeBadge) {
+    roomCodeBadge.textContent = `${userAvatar} قاعة: ${currentRoomId}`;
+  }
 
   socket.emit('join-room', {
     roomId: currentRoomId,
@@ -87,8 +105,40 @@ function enterCinema(isNewRoom = false) {
   });
 }
 
+function toggleRoomSettingsMenu(e) {
+  if (e) e.stopPropagation();
+  const popover = document.getElementById('roomSettingsPopover');
+  const dispPopover = document.getElementById('displaySettingsPopover');
+  if (dispPopover) dispPopover.classList.add('hidden');
+  if (popover) popover.classList.toggle('hidden');
+}
+
+function toggleDisplaySettingsMenu(e) {
+  if (e) e.stopPropagation();
+  const popover = document.getElementById('displaySettingsPopover');
+  const roomPopover = document.getElementById('roomSettingsPopover');
+  if (roomPopover) roomPopover.classList.add('hidden');
+  if (popover) popover.classList.toggle('hidden');
+}
+
+document.addEventListener('click', (e) => {
+  const roomWrapper = document.getElementById('roomSettingsWrapper');
+  const dispWrapper = document.getElementById('displaySettingsWrapper');
+  if (roomWrapper && !roomWrapper.contains(e.target)) {
+    const p = document.getElementById('roomSettingsPopover');
+    if (p) p.classList.add('hidden');
+  }
+  if (dispWrapper && !dispWrapper.contains(e.target)) {
+    const p = document.getElementById('displaySettingsPopover');
+    if (p) p.classList.add('hidden');
+  }
+});
+
 function getShareableLink() {
   const room = currentRoomId || 'cinema-main';
+  if (window.SAHRETNA_PUBLIC_URL) {
+    return `${window.SAHRETNA_PUBLIC_URL}/?room=${room}`;
+  }
   if (window.SAHRETNA_LOCAL_IP && window.SAHRETNA_LOCAL_IP !== 'localhost') {
     return `http://${window.SAHRETNA_LOCAL_IP}:3000/?room=${room}`;
   }

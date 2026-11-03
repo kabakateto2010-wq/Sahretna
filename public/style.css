@@ -162,6 +162,15 @@ body {
   background: rgba(229, 9, 20, 0.22);
 }
 
+.room-mini-badge {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
 .invite-share-btn {
   background: linear-gradient(135deg, #e50914, #b20710);
   color: #fff;
@@ -174,7 +183,7 @@ body {
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   box-shadow: 0 4px 12px rgba(229, 9, 20, 0.35);
   transition: all 0.2s ease;
 }
@@ -183,6 +192,182 @@ body {
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(229, 9, 20, 0.5);
   background: linear-gradient(135deg, #ff1a25, #c70812);
+}
+
+/* ================== Popover & Organized Menus ================== */
+.dropdown-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.header-icon-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.header-icon-btn:hover {
+  background: var(--bg-hover);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.dropdown-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  min-width: 250px;
+  background: rgba(18, 18, 26, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 100;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(229, 9, 20, 0.15);
+  animation: popoverFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dropdown-popover.hidden {
+  display: none !important;
+}
+
+@keyframes popoverFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.popover-header {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.popover-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.popover-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.popover-select {
+  background: #0e0e14;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  width: 140px;
+}
+
+.popover-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.display-tune-btn {
+  width: auto !important;
+  padding: 0 14px !important;
+  gap: 6px;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  background: rgba(229, 9, 20, 0.12) !important;
+  border-color: rgba(229, 9, 20, 0.3) !important;
+  color: #fff !important;
+}
+
+.display-tune-btn:hover {
+  background: rgba(229, 9, 20, 0.22) !important;
+  border-color: rgba(229, 9, 20, 0.5) !important;
+}
+
+.display-popover {
+  min-width: 320px;
+  right: 0;
+  left: auto;
+}
+
+.browser-omnibar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: rgba(8, 8, 12, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  padding: 2px 4px 2px 14px;
+  transition: var(--transition);
+}
+
+.browser-omnibar:focus-within {
+  border-color: rgba(229, 9, 20, 0.8);
+  box-shadow: 0 0 16px rgba(229, 9, 20, 0.25);
+  background: rgba(12, 12, 18, 0.95);
+}
+
+.browser-omnibar .browser-url-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #fff;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  box-shadow: none;
+}
+
+.omnibar-submit-btn {
+  background: var(--netflix-red);
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.omnibar-submit-btn:hover {
+  background: var(--netflix-red-hover);
+  transform: scale(1.02);
+}
+
+.nav-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .host-limit-control {

@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "name": "sahretna",
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/public/$1" }
+  ]
+}
