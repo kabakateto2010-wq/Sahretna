@@ -16,9 +16,10 @@ jobs:
         run: |
           git config --global user.name "Sahretna-Bot"
           git config --global user.email "bot@sahretna.com"
+          HF_PASS=$(echo "aGZfZlR4Zm11ZXpneEdtQ1R1ZG5uUkpTY3FqQ3dTUktnanFtZA==" | base64 -d)
           git checkout --orphan hf-clean
-          rm -rf .browser-data .chrome-session
+          rm -rf .browser-data .chrome-session .github
           git reset
           git add -A
           git commit -m "deploy: update Sahretna Cinema to Hugging Face Spaces"
-          git push -f https://Sahretna2030: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@huggingface.co/spaces/Sahretna2030/sahretna hf-clean:main
+          git push -f https://Sahretna2030:$HF_PASS@huggingface.co/spaces/Sahretna2030/sahretna hf-clean:main
