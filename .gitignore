@@ -5,3 +5,4 @@ node_modules/
 .chrome-session/
 .browser-data/
 .cache/
+.vercel
