@@ -1,41 +1,28 @@
 // ====================================================================
-// 🍿 سهرة بلس - Service Worker لتثبيت التطبيق على الموبايل (PWA)
+// 🍿 سهرة بلس - Service Worker (Network-First & Cache Invalidation)
 // ====================================================================
-const CACHE_NAME = 'sahretna-cache-v1';
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/app.js',
-  '/manifest.json'
-];
+const CACHE_NAME = 'sahretna-cache-v2-live';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
-  );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys.map((key) => {
+          console.log('[SW] Deleting old cache:', key);
+          return caches.delete(key);
+        })
       );
-    })
+    }).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  // عدم تخزين اتصالات Socket.IO وطلبات الـ API السحابية
-  if (event.request.url.includes('/socket.io/') || event.request.url.includes('/api/')) {
-    return;
-  }
-
+  // Always fetch fresh from network
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request).catch(() => cachedResponse);
-    })
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });
