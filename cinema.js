@@ -662,15 +662,138 @@ function changeBrowserQuality(quality) {
   showToast(`🎬 جاري التبديل إلى: ${label}...`);
 }
 
-// تطبيق الرابط ومزامنته مع عناصر المتصفح
-function applySyncedBrowserUrl(url) {
+// ==============================================================
+// 🧭 سجل تصفح المتصفح الافتراضي (Browser History & Navigation)
+// ==============================================================
+let browserHistory = ['https://www.google.com'];
+let browserHistoryIndex = 0;
+
+function pushBrowserHistory(url) {
   if (!url) return;
   url = url.trim();
-  if (browserUrlInput) browserUrlInput.value = url;
+  // منع إضافة نفس الرابط المتتالي في السجل
+  if (browserHistory[browserHistoryIndex] === url) {
+    return;
+  }
+  // إذا كنا تراجعنا للخلف ثم تصفحنا رابطاً جديداً، نحذف التاريخ اللاحق
+  if (browserHistoryIndex < browserHistory.length - 1) {
+    browserHistory = browserHistory.slice(0, browserHistoryIndex + 1);
+  }
+  browserHistory.push(url);
+  browserHistoryIndex = browserHistory.length - 1;
+  updateBrowserNavUI();
+}
+
+function browserGoBack() {
+  if (browserHistoryIndex > 0) {
+    browserHistoryIndex--;
+    const prevUrl = browserHistory[browserHistoryIndex];
+    browserNavigateTo(prevUrl, true, true);
+    showToast(`◀ رجوع إلى: ${prevUrl}`);
+  } else {
+    showToast('⚠️ لا توجد صفحات سابقة في السجل.');
+  }
+  updateBrowserNavUI();
+}
+
+function browserGoForward() {
+  if (browserHistoryIndex < browserHistory.length - 1) {
+    browserHistoryIndex++;
+    const nextUrl = browserHistory[browserHistoryIndex];
+    browserNavigateTo(nextUrl, true, true);
+    showToast(`▶ انتقال للأمام إلى: ${nextUrl}`);
+  } else {
+    showToast('⚠️ لا توجد صفحات تالية في السجل.');
+  }
+  updateBrowserNavUI();
+}
+
+function browserGoHome() {
+  browserNavigateTo('https://www.google.com');
+  showToast('🏠 العودة للصفحة الرئيسية (Google)');
+}
+
+function updateBrowserNavUI() {
+  const btnBack = document.getElementById('navBtnBack');
+  const btnFwd = document.getElementById('navBtnForward');
+  if (btnBack) {
+    const canBack = browserHistoryIndex > 0;
+    btnBack.disabled = !canBack;
+    btnBack.style.opacity = canBack ? '1' : '0.4';
+    btnBack.style.cursor = canBack ? 'pointer' : 'not-allowed';
+  }
+  if (btnFwd) {
+    const canFwd = browserHistoryIndex < browserHistory.length - 1;
+    btnFwd.disabled = !canFwd;
+    btnFwd.style.opacity = canFwd ? '1' : '0.4';
+    btnFwd.style.cursor = canFwd ? 'pointer' : 'not-allowed';
+  }
+}
+
+function clearBrowserUrl() {
+  if (browserUrlInput) {
+    browserUrlInput.value = '';
+    browserUrlInput.focus();
+  }
+}
+
+function openCurrentInNewTab() {
+  const url = (browserUrlInput ? browserUrlInput.value : '').trim();
+  if (url) {
+    const fullUrl = (url.startsWith('http://') || url.startsWith('https://')) ? url : `https://${url}`;
+    window.open(fullUrl, '_blank');
+    showToast('↗️ تم فتح الموقع في تبويب خارجي');
+  }
+}
+
+function showSiteHelper(url) {
+  const helper = document.getElementById('siteEmbedHelper');
+  const title = document.getElementById('helperSiteTitle');
+  if (helper) {
+    if (title) {
+      let domain = url;
+      try { domain = new URL(url.startsWith('http') ? url : 'https://' + url).hostname; } catch (e) {}
+      title.textContent = `هل يرفض موقع (${domain}) التضمين المباشر؟`;
+    }
+    helper.style.display = 'block';
+  }
+}
+
+function hideSiteHelper() {
+  const helper = document.getElementById('siteEmbedHelper');
+  if (helper) helper.style.display = 'none';
+}
+
+// استخراج معرّف فيديو اليوتيوب بدقة من جميع أشكال الروابط (watch, youtu.be, shorts, embed)
+function extractYouTubeVideoId(url) {
+  if (!url) return null;
+  // 1. watch?v=...
+  let match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  if (match && match[1]) return match[1];
+  // 2. shorts/...
+  match = url.match(/youtube\.com\/shorts\/([^"&?\/\s]{11})/i);
+  if (match && match[1]) return match[1];
+  return null;
+}
+
+// تطبيق الرابط ومزامنته مع عناصر المتصفح
+function applySyncedBrowserUrl(url, fromHistory = false) {
+  if (!url) return;
+  url = url.trim();
+
+  // تحديث شريط الرابط فوراً ليعكس الموقع المفتوح الحقيقي دائماً
+  if (browserUrlInput) {
+    browserUrlInput.value = url;
+  }
   updateQuickAccessActive(url);
+
+  if (!fromHistory) {
+    pushBrowserHistory(url);
+  }
 
   // إذا كان ملف فيديو مباشر (.mp4 / .m3u8 / .webm)
   if (url.includes('.mp4') || url.includes('.m3u8') || url.includes('.webm')) {
+    hideSiteHelper();
     switchMainMode('player', true);
     if (cinemaPlayer) {
       if (cinemaPlayer.src !== url) cinemaPlayer.src = url;
@@ -681,39 +804,67 @@ function applySyncedBrowserUrl(url) {
 
   // إذا كان يوتيوب، تضمين مشغل اليوتيوب المتوافق بدون حجب
   if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    hideSiteHelper();
     switchMainMode('browser', true);
-    let videoId = '';
-    if (url.includes('v=')) {
-      videoId = url.split('v=')[1].split('&')[0];
-    } else if (url.includes('youtu.be/')) {
-      videoId = url.split('youtu.be/')[1].split('?')[0];
-    } else if (url.includes('embed/')) {
-      videoId = url.split('embed/')[1].split('?')[0];
-    }
-    if (webBrowserIframe) {
-      const embedId = videoId || 'jfKfPfyJRdk';
-      webBrowserIframe.src = `https://www.youtube-nocookie.com/embed/${embedId}?autoplay=1`;
+
+    const videoId = extractYouTubeVideoId(url);
+    if (videoId) {
+      if (webBrowserIframe) {
+        webBrowserIframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`;
+      }
+      if (browserUrlInput) {
+        browserUrlInput.value = `https://www.youtube.com/watch?v=${videoId}`;
+      }
       return;
     }
+
+    // إذا كان يوتيوب عام أو بحث في يوتيوب
+    let query = '';
+    if (url.includes('search_query=')) {
+      query = decodeURIComponent(url.split('search_query=')[1].split('&')[0]);
+    }
+    if (webBrowserIframe) {
+      if (query) {
+        webBrowserIframe.src = `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query)}`;
+      } else {
+        webBrowserIframe.src = `https://www.youtube-nocookie.com/embed?listType=search&list=افلام+سينمائية+كاملة`;
+      }
+    }
+    return;
   }
 
-  // إذا كان موقع إيجي ديد المحمي
-  if (url.includes('egydead')) {
-    showToast('🍿 إيجي ديد محمي من التضمين. يمكنك مشاركته فوراً عبر زر "🖥️ بث الشاشة والصوت"!', 4500);
+  // إذا كان موقعاً محمياً من التضمين في المتصفحات العادية (مثل ايجي ديد أو أكوام)
+  if (url.includes('egydead') || url.includes('akwam') || url.includes('mycima') || url.includes('wecima') || url.includes('netflix')) {
+    switchMainMode('browser', true);
+    showSiteHelper(url);
+    if (webBrowserIframe) {
+      webBrowserIframe.src = url;
+    }
     return;
   }
 
   // إذا كان بحث جوجل أو موقع ويب
+  hideSiteHelper();
   switchMainMode('browser', true);
   if (webBrowserIframe) {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       if (url.includes('google.com')) {
-        webBrowserIframe.src = 'https://www.google.com/webhp?igu=1';
+        if (!url.includes('igu=1')) {
+          const sep = url.includes('?') ? '&' : '?';
+          webBrowserIframe.src = url + sep + 'igu=1';
+        } else {
+          webBrowserIframe.src = url;
+        }
       } else {
         webBrowserIframe.src = url;
       }
     } else {
-      webBrowserIframe.src = `https://www.google.com/search?igu=1&q=${encodeURIComponent(url)}`;
+      // كتابة كلمات بحث عادية تحول فوراً لبحث جوجل المتزامن
+      const searchUrl = `https://www.google.com/search?igu=1&q=${encodeURIComponent(url)}`;
+      webBrowserIframe.src = searchUrl;
+      if (browserUrlInput) {
+        browserUrlInput.value = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+      }
     }
   }
 }
@@ -736,14 +887,14 @@ function applyBrowserUrl() {
   showToast(`🌐 جاري تصفح: ${url}`);
 }
 
-function browserNavigateTo(url) {
+function browserNavigateTo(url, syncP2P = true, fromHistory = false) {
   if (!url) return;
   url = url.trim();
   if (browserUrlInput) browserUrlInput.value = url;
 
-  applySyncedBrowserUrl(url);
+  applySyncedBrowserUrl(url, fromHistory);
 
-  if (isP2PActive) {
+  if (syncP2P && isP2PActive) {
     broadcastP2P({ type: 'browser-navigate-sync', url: url });
   }
 
@@ -755,28 +906,14 @@ function browserNavigateTo(url) {
   showToast(`🌐 جاري تصفح: ${url}`);
 }
 
-function browserGoBack() {
-  if (socket && socket.connected) {
-    socket.emit('browser-back', { roomId: currentRoomId });
-  } else if (webBrowserIframe) {
-    try { webBrowserIframe.contentWindow.history.back(); } catch (e) {}
-  }
-}
-
-function browserGoForward() {
-  if (socket && socket.connected) {
-    socket.emit('browser-forward', { roomId: currentRoomId });
-  } else if (webBrowserIframe) {
-    try { webBrowserIframe.contentWindow.history.forward(); } catch (e) {}
-  }
-}
-
 function browserReload() {
   if (socket && socket.connected) {
     browserLoadingOverlay.classList.remove('hidden');
     socket.emit('browser-reload', { roomId: currentRoomId });
   } else if (webBrowserIframe) {
-    webBrowserIframe.src = webBrowserIframe.src;
+    const cur = webBrowserIframe.src;
+    webBrowserIframe.src = 'about:blank';
+    setTimeout(() => { webBrowserIframe.src = cur; }, 100);
   }
   showToast('🔄 تم تحديث المتصفح');
 }

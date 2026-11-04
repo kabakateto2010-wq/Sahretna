@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=5.0">
+  <link rel="stylesheet" href="style.css?v=6.0">
   <script>
     if ('caches' in window) {
       caches.keys().then(names => {
@@ -113,14 +113,21 @@
       <div class="browser-view" id="browserView" style="display:flex;">
         <!-- شريط أدوات التصفح -->
         <div class="browser-nav-bar">
-          <button class="nav-ctrl-btn" onclick="browserGoBack()" title="للخلف">◀</button>
-          <button class="nav-ctrl-btn" onclick="browserGoForward()" title="للأمام">▶</button>
-          <button class="nav-ctrl-btn" onclick="browserReload()" title="تحديث">🔄</button>
-          <button class="nav-ctrl-btn" onclick="browserNavigateTo('https://www.google.com')" title="الصفحة الرئيسية (Google)">🏠</button>
+          <!-- أزرار التنقل الرئيسية: رجوع، للأمام، تحديث، الرئيسية -->
+          <div class="nav-buttons-group">
+            <button class="nav-ctrl-btn" id="navBtnBack" onclick="browserGoBack()" title="للخلف (Back)" disabled style="opacity:0.4; cursor:not-allowed;">◀</button>
+            <button class="nav-ctrl-btn" id="navBtnForward" onclick="browserGoForward()" title="للأمام (Forward)" disabled style="opacity:0.4; cursor:not-allowed;">▶</button>
+            <button class="nav-ctrl-btn" id="navBtnReload" onclick="browserReload()" title="تحديث الصفحة (Reload)">🔄</button>
+            <button class="nav-ctrl-btn" id="navBtnHome" onclick="browserGoHome()" title="الصفحة الرئيسية - Google (Home)">🏠</button>
+          </div>
 
-          <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="ابحث في Google أو اكتب أي رابط (مثال: egydead أو youtube)..." value="https://www.google.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
-
-          <button class="btn-primary" onclick="applyBrowserUrl()">تصفح 🚀</button>
+          <!-- شريط الرابط المفتوح والبحث (Omnibar) -->
+          <div class="browser-omnibar">
+            <span class="omnibar-icon">🌐</span>
+            <input type="text" id="browserUrlInput" class="browser-url-input" placeholder="ابحث في Google أو اكتب أي رابط (مثال: youtube أو egydead)..." value="https://www.google.com" onkeypress="if(event.key==='Enter') applyBrowserUrl()">
+            <button class="omnibar-clear-btn" id="omnibarClearBtn" onclick="clearBrowserUrl()" title="مسح الرابط">✕</button>
+            <button class="omnibar-submit-btn" onclick="applyBrowserUrl()" title="تصفح الرابط">تصفح 🚀</button>
+          </div>
 
           <!-- زر التحكم في جودة البث لمنع البكسلة والتهنيج -->
           <div class="quality-selector-box" title="التحكم في جودة البث وسرعته">
@@ -203,6 +210,24 @@
           </div>
           <canvas id="browserCanvas" width="1920" height="1080" style="display:none;"></canvas>
           <iframe id="webBrowserIframe" src="https://www.google.com/webhp?igu=1" allowfullscreen allow="autoplay; encrypted-media; fullscreen" style="display:block;"></iframe>
+          
+          <!-- مساعدة ذكية للمواقع المحمية من التضمين في المتصفحات العادية -->
+          <div class="site-embed-helper" id="siteEmbedHelper" style="display:none;">
+            <div class="helper-content">
+              <span class="helper-badge">🍿 سهرة بلس | تصفح سينمائي ذكي</span>
+              <h4 class="helper-title" id="helperSiteTitle">هل يرفض الموقع التضمين المباشر؟</h4>
+              <p class="helper-desc">مواقع المشاهدة المباشرة (مثل ايجي ديد وأكوام) تحظر التضمين المباشر في المتصفحات العادية لحماية حقوقها. يمكنك المشاهدة مع أصدقائك بضغطة زر واحدة:</p>
+              <div class="helper-btn-row">
+                <button class="helper-action-btn primary" onclick="startScreenShare()">
+                  🖥️ بث تبويب الفيلم مباشرة بصوت نقي
+                </button>
+                <button class="helper-action-btn secondary" onclick="openCurrentInNewTab()">
+                  ↗️ فتح الموقع في تبويب خارجي
+                </button>
+              </div>
+              <div class="helper-note">💡 معلومة: على تطبيق سهرة بلس المكتبي (Mac App)، تفتح كافة المواقع مباشرة وبدون أي حظر نهائياً!</div>
+            </div>
+          </div>
           
           <!-- طبقة عرض الترجمة العربية السينمائية الطافية فوق الكانفاس -->
           <div class="cinema-subtitle-overlay" id="cinemaSubOverlay"></div>
@@ -507,6 +532,6 @@
 
   <script src="socket.io.min.js"></script>
   <script src="peerjs.min.js"></script>
-  <script src="cinema.js?v=5.0"></script>
+  <script src="cinema.js?v=6.0"></script>
 </body>
 </html>

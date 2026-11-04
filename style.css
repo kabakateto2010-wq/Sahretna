@@ -364,10 +364,138 @@ body {
   transform: scale(1.02);
 }
 
-.nav-btn-group {
+.nav-btn-group,
+.nav-buttons-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+}
+
+.omnibar-icon {
+  font-size: 14px;
+  opacity: 0.7;
+  padding: 0 4px;
+}
+
+.omnibar-clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 11px;
+  transition: var(--transition);
+  margin: 0 4px;
+}
+
+.omnibar-clear-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+/* ================== Cinema Site Embed Helper ================== */
+.site-embed-helper {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(14, 14, 22, 0.96);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(229, 9, 20, 0.45);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85), 0 0 24px rgba(229, 9, 20, 0.25);
+  border-radius: 16px;
+  padding: 20px 24px;
+  max-width: 580px;
+  width: 92%;
+  z-index: 30;
+  text-align: center;
+  animation: fadeInDown 0.3s ease;
+}
+
+.helper-badge {
+  display: inline-block;
+  background: rgba(229, 9, 20, 0.2);
+  border: 1px solid rgba(229, 9, 20, 0.4);
+  color: #ff3344;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.helper-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.helper-desc {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.helper-btn-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.helper-action-btn {
+  padding: 9px 18px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: var(--transition);
+}
+
+.helper-action-btn.primary {
+  background: linear-gradient(135deg, #e50914, #ff2233);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(229, 9, 20, 0.45);
+}
+
+.helper-action-btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(229, 9, 20, 0.65);
+}
+
+.helper-action-btn.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.helper-action-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.helper-note {
+  font-size: 11.5px;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px dashed rgba(245, 158, 11, 0.3);
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translate(-50%, -15px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
 .host-limit-control {
